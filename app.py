@@ -211,8 +211,8 @@ if Autenticar():
             st.write(f"Total de registros encontrados após os filtros: **{len(df)}**")
             
             # Exibe a prévia interativa na tela
-            st.dataframe(df.head(100), use_container_width=True)
-            if len(df) > 100:
+            st.dataframe(df.head(5), use_container_width=True)
+            if len(df) > 5:
                 st.caption("Mostrando as primeiras 100 linhas na prévia. O arquivo baixado conterá todos os registros.")
 
             st.write("---")
