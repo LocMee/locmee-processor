@@ -4,7 +4,7 @@ import pandas as pd
 # Configuração da página para aproveitar bem o espaço (ótimo para mobile)
 st.set_page_config(page_title="LocMee Data Processor", layout="wide")
 
-st.title("🔄 LocMee Data Processor (v3.0)")
+st.title("🔄 LocMee Data Processor (v3.1)")
 st.markdown("Higienização, ordenação inteligente e consulta rápida para o trade turístico.")
 
 # Autenticação simples via Secrets do Streamlit
@@ -38,7 +38,6 @@ if not check_password():
 def reorganizar_colunas(df, tipo_planilha):
     cols = list(df.columns)
     
-    # Mapeamento das duas colunas principais desejadas para cada categoria
     if tipo_planilha == "Agências de Turismo":
         alvos = ["Atividade Turística", "Nome Fantasia"]
     elif tipo_planilha == "Guias de Turismo":
@@ -50,7 +49,6 @@ def reorganizar_colunas(df, tipo_planilha):
     else:
         alvos = []
 
-    # Reordena jogando os alvos para o início da lista de colunas, se existirem no dataframe
     novas_cols = [c for c in alvos if c in cols] + [c for c in cols if c not in alvos]
     return df[novas_cols]
 
@@ -59,11 +57,8 @@ uploaded_file = st.file_uploader("Arraste a planilha (.xlsx)", type=["xlsx"])
 
 if uploaded_file:
     with st.spinner("Processando e higienizando os dados..."):
-        # Lendo a planilha
         df = pd.read_excel(uploaded_file)
         
-        # Identificação automática ou seletor do tipo de planilha para aplicar a regra de colunas
-        # (Aqui assumimos uma seleção ou detecção baseada no nome do arquivo ou padrão)
         nome_arquivo = uploaded_file.name.lower()
         if "guia" in nome_arquivo:
             tipo_atual = "Guias de Turismo"
@@ -72,14 +67,13 @@ if uploaded_file:
         elif "locadora" in nome_arquivo or "veiculo" in nome_arquivo:
             tipo_atual = "Locadora de Veículos"
         else:
-            tipo_atual = "Agências de Turismo" # Padrão geral
+            tipo_atual = "Agências de Turismo"
 
-        # Aplica a reorganização das colunas
         df = reorganizar_colunas(df, tipo_atual)
 
     st.success(f"Planilha processada com sucesso! Categoria detectada: **{tipo_atual}**")
     
-    # Pré-visualização com 5 linhas (focado no mobile com as colunas principais na frente)
+    # Pré-visualização com 5 linhas
     st.write("📋 **Pré-visualização (5 primeiras linhas):**")
     st.dataframe(df.head(5), use_container_width=True)
     if len(df) > 5:
@@ -89,21 +83,19 @@ if uploaded_file:
     
     # Seção de Busca Rápida e Ficha de Contato
     st.subheader("🔍 Consulta e Ficha de Cadastro")
-    st.markdown("Busque por parte do **Nome** ou **CNPJ / Número de Inscrição** para gerar o cartão de contato rápido.")
+    st.markdown("Busque por parte do **Nome** ou **CNPJ / Inscrição** para gerar o cartão de contato rápido.")
     
     termo_busca = st.text_input("Digite o CNPJ, Nome Fantasia ou Responsável:")
 
     if termo_busca:
-        # Filtra o dataframe onde qualquer coluna contenha o termo digitado
-        df_busca = df[df.astype(str).apply(lambda row: row.str.contains(termo_busca, case=False, na=False)).any(axis=1)]
+        # Spinner (reloginho de carregamento) durante a varredura da base
+        with st.spinner("⏳ Localizando registro na base..."):
+            df_busca = df[df.astype(str).apply(lambda row: row.str.contains(termo_busca, case=False, na=False)).any(axis=1)]
         
         if len(df_busca) > 0:
-            st.info(f"Encontrado(s) {len(df_busca)} registro(s). Exibindo abaixo em formato de cartão:")
+            st.info(f"Encontrado(s) {len(df_busca)} registro(s).")
             
-            # Itera sobre os resultados encontrados (limitado a 10 para não poluir a tela)
             for idx, row in df_busca.head(10).iterrows():
-                # Tentativa de mapear campos comuns independentemente da variação exata da coluna
-                # (Procura colunas que contenham palavras-chave)
                 def achar_valor(palavras_chave):
                     for col in df.columns:
                         if any(p in col.lower() for p in palavras_chave):
@@ -118,7 +110,6 @@ if uploaded_file:
                 telefone = achar_valor(["telefones", "telefone", "celular", "whatsapp", "fone"])
                 email = achar_valor(["e-mail", "email", "correio"])
 
-                # Monta o texto formatado estilo "Ficha" pronto para copiar e enviar no WhatsApp
                 ficha_texto = (
                     f"🏢 Nome: {nome_fantasia}\n"
                     f"📄 Inscrição/CNPJ: {inscricao}\n"
@@ -127,15 +118,16 @@ if uploaded_file:
                     f"📧 E-mail: {email}"
                 )
 
-                # Exibição visual limpa em colunas / blocos
                 with st.container():
                     st.markdown(f"**Registro #{idx + 1}**")
                     st.text_area(
-                        label=f"Ficha de Contato - {nome_fantasia}",
+                        label=f"Ficha - {nome_fantasia}",
                         value=ficha_texto,
                         height=130,
                         key=f"ficha_{idx}"
                     )
+                    # Botão oficial e nativo para copiar o texto com um toque
+                    st.copy_to_clipboard(ficha_texto, label=f"📋 Copiar dados para o WhatsApp (#{idx + 1})")
                     st.markdown("---")
         else:
             st.warning("Nenhum cadastro encontrado com este termo.")
