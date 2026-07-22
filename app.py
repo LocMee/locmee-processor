@@ -4,7 +4,7 @@ import pandas as pd
 # Configuração da página para aproveitar bem o espaço (ótimo para mobile)
 st.set_page_config(page_title="LocMee Data Processor", layout="wide")
 
-st.title("🔄 LocMee Data Processor (v3.1)")
+st.title("🔄 LocMee Data Processor (v3.2)")
 st.markdown("Higienização, ordenação inteligente e consulta rápida para o trade turístico.")
 
 # Autenticação simples via Secrets do Streamlit
@@ -56,7 +56,8 @@ def reorganizar_colunas(df, tipo_planilha):
 uploaded_file = st.file_uploader("Arraste a planilha (.xlsx)", type=["xlsx"])
 
 if uploaded_file:
-    with st.spinner("Processando e higienizando os dados..."):
+    # Barra de progresso / Spinner de carregamento do arquivo
+    with st.spinner("🔄 Processando e higienizando os dados da planilha..."):
         df = pd.read_excel(uploaded_file)
         
         nome_arquivo = uploaded_file.name.lower()
@@ -88,7 +89,7 @@ if uploaded_file:
     termo_busca = st.text_input("Digite o CNPJ, Nome Fantasia ou Responsável:")
 
     if termo_busca:
-        # Spinner (reloginho de carregamento) durante a varredura da base
+        # Reloginho indicando que está buscando o registro
         with st.spinner("⏳ Localizando registro na base..."):
             df_busca = df[df.astype(str).apply(lambda row: row.str.contains(termo_busca, case=False, na=False)).any(axis=1)]
         
@@ -126,8 +127,6 @@ if uploaded_file:
                         height=130,
                         key=f"ficha_{idx}"
                     )
-                    # Botão oficial e nativo para copiar o texto com um toque
-                    st.copy_to_clipboard(ficha_texto, label=f"📋 Copiar dados para o WhatsApp (#{idx + 1})")
                     st.markdown("---")
         else:
             st.warning("Nenhum cadastro encontrado com este termo.")
