@@ -4,7 +4,7 @@ import pandas as pd
 # Configuração da página para aproveitar bem o espaço (ótimo para mobile)
 st.set_page_config(page_title="LocMee Data Processor", layout="wide")
 
-st.title("🔄 LocMee Data Processor (v3.2)")
+st.title("🔄 LocMee Data Processor (v3.3)")
 st.markdown("Higienização, ordenação inteligente e consulta rápida para o trade turístico.")
 
 # Autenticação simples via Secrets do Streamlit
@@ -89,12 +89,13 @@ if uploaded_file:
     termo_busca = st.text_input("Digite o CNPJ, Nome Fantasia ou Responsável:")
 
     if termo_busca:
-        # Reloginho indicando que está buscando o registro
-        with st.spinner("⏳ Localizando registro na base..."):
+        # Reloginho logo abaixo do input de busca indicando o trabalho em tempo real
+        with st.spinner("⏳ Buscando registro na base de dados..."):
             df_busca = df[df.astype(str).apply(lambda row: row.str.contains(termo_busca, case=False, na=False)).any(axis=1)]
         
         if len(df_busca) > 0:
             st.info(f"Encontrado(s) {len(df_busca)} registro(s).")
+            st.caption("💡 *Dica no celular: Toque na caixa abaixo para selecionar e copiar os dados para o WhatsApp.*")
             
             for idx, row in df_busca.head(10).iterrows():
                 def achar_valor(palavras_chave):
