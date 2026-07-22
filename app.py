@@ -4,7 +4,7 @@ import pandas as pd
 # Configuração da página para aproveitar bem o espaço (ótimo para mobile)
 st.set_page_config(page_title="LocMee Data Processor", layout="wide")
 
-st.title("🔄 LocMee Data Processor (v3.5)")
+st.title("🔄 LocMee Data Processor (v3.6)")
 st.markdown("Higienização, ordenação inteligente e consulta rápida para o trade turístico.")
 
 # Autenticação simples via Secrets do Streamlit
@@ -56,7 +56,6 @@ def reorganizar_colunas(df, tipo_planilha):
 uploaded_file = st.file_uploader("Arraste a planilha (.xlsx)", type=["xlsx"])
 
 if uploaded_file:
-    # Barra de progresso / Spinner de carregamento do arquivo
     with st.spinner("🔄 Processando e higienizando os dados da planilha..."):
         df = pd.read_excel(uploaded_file)
         
@@ -89,7 +88,7 @@ if uploaded_file:
     termo_busca = st.text_input("Digite o Número do Certificado, Nome Fantasia ou Responsável:")
 
     if termo_busca:
-        # Reloginho logo abaixo do input de busca indicando o trabalho em tempo real
+        # O reloginho agora engloba apenas a busca e o render dos resultados logo abaixo do input
         with st.spinner("⏳ Buscando registro na base de dados..."):
             df_busca = df[df.astype(str).apply(lambda row: row.str.contains(termo_busca, case=False, na=False)).any(axis=1)]
         
@@ -107,7 +106,6 @@ if uploaded_file:
                     return "Não informado"
 
                 nome_fantasia = achar_valor(["nome fantasia", "razão social", "responsável", "nome"])
-                # Mapeamento direcionado estritamente para a coluna do Certificado Cadastur
                 certificado = achar_valor(["numero do certificado", "certificado", "cadastur"])
                 responsavel = achar_valor(["responsável", "contato", "sócio", "proprietário"])
                 telefone = achar_valor(["telefones", "telefone", "celular", "whatsapp", "fone"])
