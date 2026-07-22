@@ -4,7 +4,7 @@ import pandas as pd
 # Configuração da página para aproveitar bem o espaço (ótimo para mobile)
 st.set_page_config(page_title="LocMee Data Processor", layout="wide")
 
-st.title("🔄 LocMee Data Processor (v3.4)")
+st.title("🔄 LocMee Data Processor (v3.5)")
 st.markdown("Higienização, ordenação inteligente e consulta rápida para o trade turístico.")
 
 # Autenticação simples via Secrets do Streamlit
@@ -84,9 +84,9 @@ if uploaded_file:
     
     # Seção de Busca Rápida e Ficha de Contato
     st.subheader("🔍 Consulta e Ficha de Cadastro")
-    st.markdown("Busque por parte do **Nome** ou **CNPJ / Inscrição** para gerar o cartão de contato rápido.")
+    st.markdown("Busque por parte do **Nome** ou do **Número do Certificado** para gerar o cartão de contato rápido.")
     
-    termo_busca = st.text_input("Digite o CNPJ, Nome Fantasia ou Responsável:")
+    termo_busca = st.text_input("Digite o Número do Certificado, Nome Fantasia ou Responsável:")
 
     if termo_busca:
         # Reloginho logo abaixo do input de busca indicando o trabalho em tempo real
@@ -107,14 +107,15 @@ if uploaded_file:
                     return "Não informado"
 
                 nome_fantasia = achar_valor(["nome fantasia", "razão social", "responsável", "nome"])
-                inscricao = achar_valor(["cnpj", "inscrição", "cpf", "registro"])
+                # Mapeamento direcionado estritamente para a coluna do Certificado Cadastur
+                certificado = achar_valor(["numero do certificado", "certificado", "cadastur"])
                 responsavel = achar_valor(["responsável", "contato", "sócio", "proprietário"])
                 telefone = achar_valor(["telefones", "telefone", "celular", "whatsapp", "fone"])
                 email = achar_valor(["e-mail", "email", "correio"])
 
                 ficha_texto = (
                     f"🏢 Nome: {nome_fantasia}\n"
-                    f"📄 Inscrição Cadastur: {inscricao}\n"
+                    f"📄 Inscrição Cadastur: {certificado}\n"
                     f"👤 Responsável: {responsavel}\n"
                     f"📞 Telefone: {telefone}\n"
                     f"📧 E-mail: {email}"
