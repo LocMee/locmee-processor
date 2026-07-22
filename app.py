@@ -4,7 +4,7 @@ import pandas as pd
 # Configuração da página para aproveitar bem o espaço (ótimo para mobile)
 st.set_page_config(page_title="LocMee Data Processor", layout="wide")
 
-st.title("🔄 LocMee Data Processor (v3.3)")
+st.title("🔄 LocMee Data Processor (v3.4)")
 st.markdown("Higienização, ordenação inteligente e consulta rápida para o trade turístico.")
 
 # Autenticação simples via Secrets do Streamlit
@@ -114,7 +114,7 @@ if uploaded_file:
 
                 ficha_texto = (
                     f"🏢 Nome: {nome_fantasia}\n"
-                    f"📄 Inscrição/CNPJ: {inscricao}\n"
+                    f"📄 Inscrição Cadastur: {inscricao}\n"
                     f"👤 Responsável: {responsavel}\n"
                     f"📞 Telefone: {telefone}\n"
                     f"📧 E-mail: {email}"
