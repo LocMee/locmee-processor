@@ -6,7 +6,7 @@ import re
 # Configuração da página para aproveitar bem o espaço
 st.set_page_config(page_title="LocMee Data Processor", layout="wide")
 
-st.title("🔄 LocMee Data Processor (v4.6)")
+st.title("🔄 LocMee Data Processor (v4.7)")
 st.markdown("Consulta rápida, organizada e integrada ao repositório para o trade turístico.")
 
 # Autenticação segura via Secrets do Streamlit
@@ -44,8 +44,8 @@ def check_password():
 if not check_password():
     st.stop()
 
-# Função para remover preposições e conjunções dos nomes para o marketing
-def limpar_preposicoes_nome(texto):
+# Função para formatar o nome do responsável: retira preposições e mantém apenas os 2 primeiros nomes
+def formatar_nome_responsavel(texto):
     if pd.isna(texto) or not isinstance(texto, str):
         return texto
     
@@ -53,7 +53,10 @@ def limpar_preposicoes_nome(texto):
     
     tokens = texto.split()
     tokens_filtrados = [t for t in tokens if t.lower() not in palavras_ignorar]
-    return " ".join(tokens_filtrados)
+    
+    # Mantém estritamente apenas os 2 primeiros nomes válidos
+    primeiros_dois = tokens_filtrados[:2]
+    return " ".join(primeiros_dois)
 
 # Função para higienizar e filtrar a base focando na coluna E-mail Comercial
 def higienizar_base(df):
@@ -105,10 +108,11 @@ def higienizar_base(df):
                 
         df = df[~mask_proibido].reset_index(drop=True)
 
-    # Aplica a limpeza de preposições nas colunas de nome / responsável
+    # Aplica a formatação específica na coluna de responsável (2 primeiros nomes sem preposições)
     for col in df.columns:
-        if any(t in col.lower() for t in ["nome", "fantasia", "razao", "responsável"]):
-            df[col] = df[col].apply(limpar_preposicoes_nome)
+        c_l = col.strip().lower()
+        if c_l in ["nome do responsável", "nome do responsavel"] or "responsável" in c_l or "responsavel" in c_l:
+            df[col] = df[col].apply(formatar_nome_responsavel)
 
     return df
 
@@ -141,18 +145,66 @@ tipo_atual = st.selectbox("Selecione a base de dados que deseja consultar:", lis
 caminho_arquivo = opcoes_planilhas[tipo_atual]
 
 if os.path.exists(caminho_arquivo):
-    with st.spinner(f"🔄 Carregando e higienizando base de {tipo_atual}..."):
-        df = pd.read_excel(caminho_arquivo)
-        df = higienizar_base(df)
+    # Carrega a base bruta para extrair as opções de Estado e Município antes de processar tudo
+    with st.spinner(f"📂 Lendo dados brutos de {tipo_atual}..."):
+        df_raw = pd.read_excel(caminho_arquivo)
+
+    # Identificar colunas de Estado e Município de forma flexível
+    col_uf = None
+    col_mun = None
+    for c in df_raw.columns:
+        c_l = c.strip().lower()
+        if c_l in ["uf", "estado", "sigla uf"]:
+            col_uf = c
+        if c_l in ["município", "municipio", "cidade"]:
+            col_mun = c
+
+    # Filtros geográficos prévios
+    st.markdown("### 📍 Filtro Geográfico Prévio")
+    col_f1, col_f2 = st.columns(2)
+    
+    uf_selecionada = "Todos"
+    mun_selecionado = "Todos"
+
+    with col_f1:
+        if col_uf:
+            lista_ufs = ["Todos"] + sorted([str(x) for x in df_raw[col_uf].dropna().unique() if str(x).strip() != ""])
+            uf_selecionada = st.selectbox("Filtrar por Estado (UF):", lista_ufs)
+        else:
+            st.info("Coluna de UF não localizada na planilha.")
+
+    with col_f2:
+        if col_mun:
+            # Se houver UF selecionada, filtra os municípios daquele estado para facilitar
+            if col_uf and uf_selecionada != "Todos":
+                df_mun_filtrado = df_raw[df_raw[col_uf].astype(str) == uf_selecionada]
+            else:
+                df_mun_filtrado = df_raw
+            lista_muns = ["Todos"] + sorted([str(x) for x in df_mun_filtrado[col_mun].dropna().unique() if str(x).strip() != ""])
+            mun_selecionado = st.selectbox("Filtrar por Município:", lista_muns)
+        else:
+            st.info("Coluna de Município não localizada na planilha.")
+
+    # Aplicação dos filtros geográficos na base bruta
+    df_filtrado_geo = df_raw.copy()
+    if col_uf and uf_selecionada != "Todos":
+        df_filtrado_geo = df_filtrado_geo[df_filtrado_geo[col_uf].astype(str) == uf_selecionada]
+    if col_mun and mun_selecionado != "Todos":
+        df_filtrado_geo = df_filtrado_geo[df_filtrado_geo[col_mun].astype(str) == mun_selecionado]
+
+    st.markdown("---")
+
+    with st.spinner(f"🔄 Higienizando registros filtrados..."):
+        df = higienizar_base(df_filtrado_geo)
         df = reorganizar_colunas(df, tipo_atual)
 
-    st.success(f"Base carregada e limpa com sucesso: **{tipo_atual}** ({len(df)} registros válidos)")
+    st.success(f"Base carregada e limpa com sucesso: **{tipo_atual}** ({len(df)} registros válidos após filtros)")
     
     # OPÇÕES DE DOWNLOAD NO TOPO
     st.markdown("### 📥 Opções de Download")
-    col1, col2 = st.columns(2)
+    col_dl1, col_dl2 = st.columns(2)
     
-    with col1:
+    with col_dl1:
         csv_completo = df.to_csv(index=False).encode('utf-8')
         st.download_button(
             label=f"📥 Baixar Base Completa (.csv)",
@@ -161,14 +213,13 @@ if os.path.exists(caminho_arquivo):
             mime="text/csv"
         )
         
-    with col2:
-        # Identificação exata das colunas padronizadas para marketing
+    with col_dl2:
         col_nome_mkt = None
         col_email_mkt = None
         
         for c in df.columns:
-            c_lower = c.strip().lower()
-            if c_lower == "nome do responsável" or c_lower == "nome do responsavel":
+            c_l = c.strip().lower()
+            if c_l in ["nome do responsável", "nome do responsavel"] or "responsável" in c_l or "responsavel" in c_l:
                 col_nome_mkt = c
                 break
         
@@ -179,8 +230,8 @@ if os.path.exists(caminho_arquivo):
                     break
 
         for c in df.columns:
-            c_lower = c.strip().lower()
-            if c_lower == "e-mail comercial" or c_lower == "email comercial":
+            c_l = c.strip().lower()
+            if c_l == "e-mail comercial" or c_l == "email comercial" or ("e-mail" in c_l and "comercial" in c_l):
                 col_email_mkt = c
                 break
 
