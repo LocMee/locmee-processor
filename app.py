@@ -8,7 +8,7 @@ from datetime import datetime
 # Configuração da página para aproveitar bem o espaço
 st.set_page_config(page_title="LocMee Data Processor", layout="wide")
 
-st.title("🔄 LocMee Data Processor (v4.12)")
+st.title("🔄 LocMee Data Processor (v4.14)")
 st.markdown("Consulta rápida, organizada e integrada ao repositório para o trade turístico.")
 
 # Autenticação segura via Secrets do Streamlit
@@ -46,17 +46,76 @@ def check_password():
 if not check_password():
     st.stop()
 
-# --- FUNÇÃO PARA BUSCAR FERIADOS NACIONAIS (BrasilAPI) ---
-@st.cache_data(ttl=86400) # Cache de 24 horas para não consultar a API a cada clique
-def obter_feriados_ano(ano):
+# --- FUNÇÃO PARA OBTER FERIADOS NACIONAIS E ESTADUAIS DE TODAS AS UFS ---
+@st.cache_data(ttl=86400)
+def obter_calendario_nacional(ano, uf_filtro):
+    # 1. Busca feriados nacionais oficiais via BrasilAPI
+    feriados_lista = []
     try:
         url = f"https://brasilapi.com.br/api/feriados/v1/{ano}"
         response = requests.get(url, timeout=5)
         if response.status_code == 200:
-            return response.json()
+            for f in response.json():
+                feriados_lista.append({
+                    "date": f["date"],
+                    "name": f["name"],
+                    "tipo": "Nacional"
+                })
     except Exception:
         pass
-    return []
+
+    # 2. Dicionário com os Principais Feriados Estaduais de todo o Brasil
+    feriados_estaduais_brasil = {
+        "AC": [{"date": f"{ano}-01-23", "name": "Fim da Revolução Acreana"}, {"date": f"{ano}-06-15", "name": "Aniversário do Acre"}],
+        "AL": [{"date": f"{ano}-09-16", "name": "Emancipação Política de Alagoas"}, {"date": f"{ano}-11-20", "name": "Dia da Consciência Negra"}],
+        "AP": [{"date": f"{ano}-03-19", "name": "Dia de São José"}, {"date": f"{ano}-09-13", "name": "Criação do Território Federal"}],
+        "AM": [{"date": f"{ano}-09-05", "name": "Elevação do Amazonas à Província"}, {"date": f"{ano}-11-20", "name": "Dia da Consciência Negra"}],
+        "BA": [{"date": f"{ano}-07-02", "name": "Independência da Bahia"}],
+        "CE": [{"date": f"{ano}-03-19", "name": "Dia de São José"}, {"date": f"{ano}-03-25", "name": "Data Magna do Ceará (Fim da Escravidão)"}],
+        "DF": [{"date": f"{ano}-04-21", "name": "Fundação de Brasília"}, {"date": f"{ano}-11-30", "name": "Dia do Evangélico"}],
+        "ES": [{"date": f"{ano}-05-23", "name": "Colonização do Solo Espírito-Santense"}],
+        "GO": [{"date": f"{ano}-07-26", "name": "Fundação da Cidade de Goiás"}],
+        "MA": [{"date": f"{ano}-07-28", "name": "Adesão do Maranhão à Independência do Brasil"}],
+        "MT": [{"date": f"{ano}-11-20", "name": "Dia da Consciência Negra"}],
+        "MS": [{"date": f"{ano}-10-11", "name": "Criação do Estado de Mato Grosso do Sul"}],
+        "MG": [{"date": f"{ano}-04-21", "name": "Data Magna de Minas Gerais (Tiradentes)"}],
+        "PA": [{"date": f"{ano}-08-15", "name": "Adesão do Pará à Independência do Brasil"}],
+        "PB": [{"date": f"{ano}-08-05", "name": "Fundação do Estado da Paraíba"}],
+        "PR": [{"date": f"{ano}-12-19", "name": "Emancipação Política do Paraná"}],
+        "PE": [{"date": f"{ano}-03-06", "name": "Revolução Pernambucana"}],
+        "PI": [{"date": f"{ano}-10-19", "name": "Dia do Piauí"}],
+        "RJ": [{"date": f"{ano}-04-23", "name": "Dia de São Jorge"}, {"date": f"{ano}-11-20", "name": "Dia da Consciência Negra"}],
+        "RN": [{"date": f"{ano}-10-03", "name": "Mártires de Cunhaú e Uruaçu"}],
+        "RS": [{"date": f"{ano}-09-20", "name": "Revolução Farroupilha (Data Magna)"}],
+        "RO": [{"date": f"{ano}-01-04", "name": "Criação do Estado de Rondônia"}, {"date": f"{ano}-03-15", "name": "Criação do Território"}],
+        "RR": [{"date": f"{ano}-10-05", "name": "Criação do Estado de Roraima"}],
+        "SC": [{"date": f"{ano}-08-11", "name": "Criação da Província de Santa Catarina"}, {"date": f"{ano}-11-25", "name": "Dia de Santa Catarina de Alexandria"}],
+        "SP": [{"date": f"{ano}-07-09", "name": "Revolução Constitucionalista de 1932"}, {"date": f"{ano}-11-20", "name": "Dia da Consciência Negra"}],
+        "SE": [{"date": f"{ano}-07-08", "name": "Autonomia Política de Sergipe"}],
+        "TO": [{"date": f"{ano}-03-18", "name": "Autonomia do Tocantins"}, {"date": f"{ano}-10-05", "name": "Criação do Estado"}]
+    }
+
+    # Se um estado específico estiver selecionado, adiciona os feriados dele
+    if uf_filtro != "Todos" and uf_filtro in feriados_estaduais_brasil:
+        for fe in feriados_estaduais_brasil[uf_filtro]:
+            feriados_lista.append({
+                "date": fe["date"],
+                "name": f"{fe['name']} (Estadual - {uf_filtro})",
+                "tipo": "Estadual"
+            })
+    elif uf_filtro == "Todos":
+        # Se estiver em "Todos", inclui uma listagem geral consolidada de estaduais para consulta ampla
+        for uf_sigla, lista_fes in feriados_estaduais_brasil.items():
+            for fe in lista_fes:
+                feriados_lista.append({
+                    "date": fe["date"],
+                    "name": f"{fe['name']} (Estadual - {uf_sigla})",
+                    "tipo": "Estadual"
+                })
+
+    # Ordena por data cronológica
+    feriados_lista = sorted(feriados_lista, key=lambda x: x["date"])
+    return feriados_lista
 
 # Função para formatar o nome do responsável: retira preposições e mantém apenas os 2 primeiros nomes
 def formatar_nome_responsavel(texto):
@@ -197,23 +256,22 @@ if os.path.exists(caminho_arquivo):
         else:
             st.info("Coluna de Município não localizada na planilha.")
 
-    # --- ALERTA DE FERIADOS LOGO APÓS O LOGIN E FILTROS ---
+    # --- ALERTA DE FERIADOS NACIONAIS E ESTADUAIS DE TODAS AS UFS ---
     ano_atual = datetime.now().year
     data_hoje = datetime.now().strftime("%Y-%m-%d")
-    feriados = obter_feriados_ano(ano_atual)
+    calendario = obter_calendario_nacional(ano_atual, uf_selecionada)
 
-    feriado_hoje = next((f for f in feriados if f["date"] == data_hoje), None)
+    # Verifica se há feriado hoje
+    feriado_hoje = next((f for f in calendario if f["date"] == data_hoje), None)
 
     if feriado_hoje:
-        nome_feriado = feriado_hoje["name"]
-        local_aviso = f"Estado: {uf_selecionada}" if uf_selecionada != "Todos" else "Nacional"
-        st.success(f"🎯 **Alerta de Feriado Hoje!** O feriado **{nome_feriado}** é comemorado nesta data ({local_aviso}).")
+        st.success(f"🎯 **Alerta de Feriado Hoje!** **{feriado_hoje['name']}**.")
     else:
-        proximos_feriados = [f for f in feriados if f["date"] > data_hoje]
-        if proximos_feriados:
-            proximo = proximos_feriados[0]
+        proximos = [f for f in calendario if f["date"] > data_hoje]
+        if proximos:
+            proximo = proximos[0]
             data_formatada = datetime.strptime(proximo["date"], "%Y-%m-%d").strftime("%d/%m/%Y")
-            st.info(f"📅 **Próximo Feriado Nacional:** {proximo['name']} em **{data_formatada}**.")
+            st.info(f"📅 **Próximo Feriado ({proximo['tipo']}):** **{proximo['name']}** em **{data_formatada}**.")
 
     # Aplicação dos filtros geográficos na base bruta
     df_filtrado_geo = df_raw.copy()
