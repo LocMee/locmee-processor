@@ -5,50 +5,55 @@ def buscar_e_transformar_noticias():
     st.subheader("🌐 Radar Global LocMee")
     st.markdown("Curadoria de tendências internacionais adaptadas com exclusividade para o mercado B2B brasileiro.")
 
-    # Simulação de uma busca em API global (ex: World News API / NewsAPI)
-    # No futuro, aqui entra a requisição requests.get("https://api.worldnewsapi.com/...")
-    
-    # Exemplo de payload simulado vindo do mercado internacional (ex: Europa/EUA)
+    # Base de dados simulada com foco comercial (Aéreo, Marítimo, Operadoras, Tendências e Bem-Estar)
     noticias_globais = [
         {
-            "titulo_original": "AI-Powered Itinerary Builders Are Transforming Corporate Travel Agencies",
-            "fonte_original": "Global Tourism Tech Review",
-            "conteudo_original": "Travel management companies adopting generative AI for custom itineraries are reporting a 40% reduction in planning time and a significant boost in high-end client retention.",
-            "categoria": "Tecnologia & Inovação"
+            "titulo": "Companhias Aéreas Internacionais Ampliam Conectividade Direta com o Interior do Brasil",
+            "fonte": "Global Aviation Wire",
+            "categoria": "Mercado Aéreo",
+            "analise": (
+                "**Análise LocMee:** A descentralização dos voos internacionais reduz a dependência dos grandes hubs e abre uma janela "
+                "gigantesca para operadores regionais e agências locais empacotarem produtos de saída direta, facilitando a vida do passageiro corporativo e de lazer."
+            )
         },
         {
-            "titulo_original": "B2B Supplier Platforms Shift Toward Direct API Integration for Regional Tour Operators",
-            "fonte_original": "World Travelwire",
-            "conteudo_original": "Suppliers worldwide are bypassing legacy GDS systems to connect directly with regional B2B networks, speeding up commission settlements and inventory updates.",
-            "categoria": "Distribuição B2B"
+            "titulo": "Demografia dos Cruzeiros Marítimos Registra Alta Recorde em Roteiros Temáticos e de Luxo",
+            "fonte": "Cruise Industry Trends",
+            "categoria": "Setor Marítimo",
+            "analise": (
+                "**Análise LocMee:** O mercado de cruzeiros deixou de ser apenas volume e passou a ser valor agregado. Para o agente de viagens, "
+                "vender cabines temáticas e de alto padrão é hoje uma das margens de comissão mais garantidas e de menor esforço de fidelização."
+            )
+        },
+        {
+            "titulo": "Operadoras Globais Apostam em Flexibilidade Dinâmica para Concorrer com OTAs",
+            "fonte": "Tour Operator Insight",
+            "categoria": "Operadoras",
+            "analise": (
+                "**Análise LocMee:** As grandes operadoras estão redesenhando seus contratos B2B para dar autonomia de montagem ao agente. "
+                "Quem ganha é o trade local, que consegue competir em agilidade com as grandes plataformas de venda direta ao consumidor final."
+            )
+        },
+        {
+            "titulo": "Turismo de Bem-Estar e Longevidade Lidera Crescimento em Destinos Exclusivos",
+            "fonte": "Wellness Travel Report",
+            "categoria": "Tendências & Bem-Estar",
+            "analise": (
+                "**Análise LocMee:** O cliente de alta renda está trocando o turismo tradicional de correria por roteiros de reconexão e saúde preventiva. "
+                "Incluir retiros e hotéis-boutique focados em bem-estar no portfólio da agência eleva o ticket médio de forma expressiva."
+            )
         }
     ]
 
     if st.button("🔄 Atualizar Radar Global"):
-        with st.spinner("Analisando e traduzindo tendências globais..."):
-            # Aqui simulamos a inteligência reescrevendo com a "Cara da LocMee"
-            pass
+        st.toast("Radar atualizado com as últimas tendências do mercado!", icon="🚀")
 
     st.markdown("---")
 
     # Exibição dos cards customizados no estilo LocMee
     for item in noticias_globais:
         with st.container():
-            st.markdown(f"**[{item['categoria']}] {item['titulo_original']}**")
-            
-            # Aqui entra a mágica: o texto reescrito com a ótica da LocMee
-            if "AI-Powered" in item['titulo_original']:
-                texto_locmee = (
-                    "**Análise LocMee:** O uso de ferramentas baseadas em inteligência artificial para montagem de roteiros "
-                    "já é uma realidade irreversível no exterior. Para o agente de viagens e operador B2B no Brasil, o ganho de eficiência "
-                    "não substitui o toque consultivo, mas libera o profissional para focar no relacionamento e na alta conversão."
-                )
-            else:
-                texto_locmee = (
-                    "**Análise LocMee:** A descentralização de sistemas legados em favor de conexões diretas via API reforça a nossa tese "
-                    "de que centralizar informações e contatos estratégicos é o único caminho para dar agilidade real ao trade turístico."
-                )
-
-            st.info(texto_locmee)
-            st.caption(f"Fonte original de referência: *{item['fonte_original']}*")
+            st.markdown(f"**[{item['categoria']}] {item['titulo']}**")
+            st.info(item['analise'])
+            st.caption(f"Fonte de referência internacional: *{item['fonte']}*")
             st.markdown("")
