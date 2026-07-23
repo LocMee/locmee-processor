@@ -3,64 +3,80 @@ import pandas as pd
 import os
 import re
 
-# Configuração da página para aproveitar bem o espaço (ótimo para mobile)
+# Configuração da página para aproveitar bem o espaço
 st.set_page_config(page_title="LocMee Data Processor", layout="wide")
 
-st.title("🔄 LocMee Data Processor (v4.2)")
+st.title("🔄 LocMee Data Processor (v4.3)")
 st.markdown("Consulta rápida, organizada e integrada ao repositório para o trade turístico.")
 
-# Autenticação simples via Secrets do Streamlit
+# Autenticação segura via Secrets do Streamlit
 if "SENHA_ACESSO" in st.secrets:
     senha_correta = st.secrets["SENHA_ACESSO"]
 else:
-    senha_correta = "locmee2026"  # fallback caso não esteja configurado
+    senha_correta = "locmee2026"  # fallback de segurança
 
 def check_password():
+    if "password_correct" not in st.session_state:
+        st.session_state["password_correct"] = False
+
+    if st.session_state["password_correct"]:
+        return True
+
     def password_entered():
-        if st.session_state["password"] == senha_correta:
+        if st.session_state["password_input"] == senha_correta:
             st.session_state["password_correct"] = True
-            del st.session_state["password"]
+            st.session_state["password_input"] = ""  # limpa o campo
         else:
             st.session_state["password_correct"] = False
 
-    if "password_correct" not in st.session_state:
-        st.text_input("Digite a senha de acesso:", type="password", on_change=password_entered, key="password")
-        return False
-    elif not st.session_state["password_correct"]:
-        st.text_input("Digite a senha de acesso:", type="password", on_change=password_entered, key="password")
+    st.text_input(
+        "Digite a senha de acesso:",
+        type="password",
+        on_change=password_entered,
+        key="password_input"
+    )
+    
+    if "password_input" in st.session_state and not st.session_state["password_correct"] and st.session_state["password_input"] != "":
         st.error("Senha incorreta.")
-        return False
-    else:
-        return True
+        
+    return st.session_state["password_correct"]
 
 if not check_password():
     st.stop()
 
-# Função para higienizar e filtrar a base olhando estritamente para a coluna "E-mail Comercial"
+# Função para higienizar e filtrar a base focando na coluna E-mail Comercial
 def higienizar_base(df):
-    # Localizar exatamente a coluna "E-mail Comercial" (ignorando maiúsculas/minúsculas ou espaços extras)
+    # Encontrar a coluna de e-mail comercial de forma inteligente
     col_alvo = None
     for col in df.columns:
-        if col.strip().lower() == "e-mail comercial" or col.strip().lower() == "email comercial":
-            col_alvo = col
-            break
+        col_limpa = col.strip().lower()
+        if "e-mail" in col_limpa or "email" in col_limpa:
+            if "comercial" in col_limpa:
+                col_alvo = col
+                break
+    
+    # Se não achou com "comercial", pega a primeira coluna que tiver email
+    if not col_alvo:
+        for col in df.columns:
+            if "e-mail" in col.lower() or "email" in col.lower():
+                col_alvo = col
+                break
             
     if col_alvo:
-        # Converter para string para tratar
         df[col_alvo] = df[col_alvo].astype(str)
         
-        # Deixar apenas o primeiro e-mail se houver mais de um na mesma célula
+        # Isolar estritamente apenas o primeiro e-mail válido se houver múltiplos
         def extrair_primeiro_email(texto):
             if pd.isna(texto) or texto.lower() == 'nan':
                 return ""
             emails = re.findall(r'[\w\.-]+@[\w\.-]+\.\w+', texto)
             if emails:
-                return emails[0] # Retorna estritamente o primeiro
+                return emails[0]
             return texto
 
         df[col_alvo] = df[col_alvo].apply(extrair_primeiro_email)
 
-        # Filtrar e remover cadastros de escritórios de contabilidade e afins
+        # Filtrar cadastros de escritórios de contabilidade e afins
         termos_proibidos = [
             "contabil", "contabilidade", "escritorio", "escritório", 
             "fiscal", "dp", "rh", "financeiro", "adm", "administracao", 
@@ -69,19 +85,17 @@ def higienizar_base(df):
         
         padrao_proibido = '|'.join(termos_proibidos)
         
-        # Verifica se o termo proibido está na coluna E-mail Comercial ou no Nome/Razão Social
         mask_proibido = df[col_alvo].str.contains(padrao_proibido, case=False, na=False)
         
         for col in df.columns:
             if any(t in col.lower() for t in ["nome", "fantasia", "razao"]):
                 mask_proibido = mask_proibido | df[col].astype(str).str.contains(padrao_proibido, case=False, na=False)
                 
-        # Mantém apenas quem NÃO tem os termos proibidos
         df = df[~mask_proibido].reset_index(drop=True)
 
     return df
 
-# Função para reorganizar as colunas principais no topo conforme o tipo de planilha
+# Função para reorganizar as colunas principais no topo
 def reorganizar_colunas(df, tipo_planilha):
     cols = list(df.columns)
     
@@ -99,7 +113,7 @@ def reorganizar_colunas(df, tipo_planilha):
     novas_cols = [c for c in alvos if c in cols] + [c for c in cols if c not in alvos]
     return df[novas_cols]
 
-# Mapeamento das opções do menu para os arquivos salvos na raiz do repositório
+# Mapeamento das opções do menu
 opcoes_planilhas = {
     "Agências de Turismo": "agencias.xlsx",
     "Guias de Turismo": "guias.xlsx",
@@ -108,20 +122,18 @@ opcoes_planilhas = {
     "Parques e Outros": "parques.xlsx"
 }
 
-# Menu de seleção direto na tela
 tipo_atual = st.selectbox("Selecione a base de dados que deseja consultar:", list(opcoes_planilhas.keys()))
 caminho_arquivo = opcoes_planilhas[tipo_atual]
 
-# Carregamento automático direto do repositório do GitHub com higienização estrita
+# Carregamento automático e higienização
 if os.path.exists(caminho_arquivo):
     with st.spinner(f"🔄 Carregando e higienizando base de {tipo_atual}..."):
         df = pd.read_excel(caminho_arquivo)
-        df = higienizar_base(df)       # Aplica o filtro restrito à coluna "E-mail Comercial"
+        df = higienizar_base(df)
         df = reorganizar_colunas(df, tipo_atual)
 
     st.success(f"Base carregada e limpa com sucesso: **{tipo_atual}** ({len(df)} registros válidos)")
     
-    # Pré-visualização com 5 linhas
     st.write("📋 **Pré-visualização (5 primeiras linhas):**")
     st.dataframe(df.head(5), use_container_width=True)
     if len(df) > 5:
@@ -129,7 +141,6 @@ if os.path.exists(caminho_arquivo):
 
     st.markdown("---")
     
-    # Seção de Busca Rápida e Ficha de Contato
     st.subheader("🔍 Consulta e Ficha de Cadastro")
     st.markdown("Busque por parte do **Nome** ou do **Número do Certificado** para gerar o cartão de contato rápido.")
     
@@ -157,10 +168,9 @@ if os.path.exists(caminho_arquivo):
                 responsavel = achar_valor(["responsável", "contato", "sócio", "proprietário"])
                 telefone = achar_valor(["telefones", "telefone", "celular", "whatsapp", "fone"])
                 
-                # Puxando explicitamente da coluna E-mail Comercial na ficha também
                 email_comercial = "Não informado"
                 for col in df.columns:
-                    if col.strip().lower() in ["e-mail comercial", "email comercial"]:
+                    if "e-mail" in col.lower() or "email" in col.lower():
                         val = row[col]
                         if pd.notna(val):
                             email_comercial = str(val)
@@ -186,7 +196,6 @@ if os.path.exists(caminho_arquivo):
         else:
             st.warning("Nenhum cadastro encontrado com este termo.")
 
-    # Botão de Download da Planilha Higienizada Inteira
     st.markdown("---")
     csv = df.to_csv(index=False).encode('utf-8')
     st.download_button(
@@ -196,4 +205,4 @@ if os.path.exists(caminho_arquivo):
         mime="text/csv"
     )
 else:
-    st.error(f"⚠️ O arquivo correspondente (`{caminho_arquivo}`) ainda não foi encontrado na raiz do seu repositório no GitHub. Certifique-se de que subiu com esse nome exato!")
+    st.error(f"⚠️ O arquivo correspondente (`{caminho_arquivo}`) ainda não foi encontrado na raiz do repositório.")
