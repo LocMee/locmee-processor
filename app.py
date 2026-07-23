@@ -8,7 +8,7 @@ from datetime import datetime
 # Configuração da página para aproveitar bem o espaço
 st.set_page_config(page_title="LocMee Data Processor", layout="wide")
 
-st.title("🔄 LocMee Data Processor (v4.14)")
+st.title("🔄 LocMee Data Processor (v4.15)")
 st.markdown("Consulta rápida, organizada e integrada ao repositório para o trade turístico.")
 
 # Autenticação segura via Secrets do Streamlit
@@ -49,7 +49,6 @@ if not check_password():
 # --- FUNÇÃO PARA OBTER FERIADOS NACIONAIS E ESTADUAIS DE TODAS AS UFS ---
 @st.cache_data(ttl=86400)
 def obter_calendario_nacional(ano, uf_filtro):
-    # 1. Busca feriados nacionais oficiais via BrasilAPI
     feriados_lista = []
     try:
         url = f"https://brasilapi.com.br/api/feriados/v1/{ano}"
@@ -64,7 +63,6 @@ def obter_calendario_nacional(ano, uf_filtro):
     except Exception:
         pass
 
-    # 2. Dicionário com os Principais Feriados Estaduais de todo o Brasil
     feriados_estaduais_brasil = {
         "AC": [{"date": f"{ano}-01-23", "name": "Fim da Revolução Acreana"}, {"date": f"{ano}-06-15", "name": "Aniversário do Acre"}],
         "AL": [{"date": f"{ano}-09-16", "name": "Emancipação Política de Alagoas"}, {"date": f"{ano}-11-20", "name": "Dia da Consciência Negra"}],
@@ -95,7 +93,6 @@ def obter_calendario_nacional(ano, uf_filtro):
         "TO": [{"date": f"{ano}-03-18", "name": "Autonomia do Tocantins"}, {"date": f"{ano}-10-05", "name": "Criação do Estado"}]
     }
 
-    # Se um estado específico estiver selecionado, adiciona os feriados dele
     if uf_filtro != "Todos" and uf_filtro in feriados_estaduais_brasil:
         for fe in feriados_estaduais_brasil[uf_filtro]:
             feriados_lista.append({
@@ -104,7 +101,6 @@ def obter_calendario_nacional(ano, uf_filtro):
                 "tipo": "Estadual"
             })
     elif uf_filtro == "Todos":
-        # Se estiver em "Todos", inclui uma listagem geral consolidada de estaduais para consulta ampla
         for uf_sigla, lista_fes in feriados_estaduais_brasil.items():
             for fe in lista_fes:
                 feriados_lista.append({
@@ -113,7 +109,6 @@ def obter_calendario_nacional(ano, uf_filtro):
                     "tipo": "Estadual"
                 })
 
-    # Ordena por data cronológica
     feriados_lista = sorted(feriados_lista, key=lambda x: x["date"])
     return feriados_lista
 
@@ -217,9 +212,29 @@ tipo_atual = st.selectbox("Selecione a base de dados que deseja consultar:", lis
 caminho_arquivo = opcoes_planilhas[tipo_atual]
 
 if os.path.exists(caminho_arquivo):
-    # Carrega a base bruta para extrair as opções de Estado e Município antes de processar tudo
     with st.spinner(f"📂 Lendo dados brutos de {tipo_atual}..."):
         df_raw = pd.read_excel(caminho_arquivo)
+
+    # --- PRÉVIA DE 5 LINHAS COM ATIVIDADE TURÍSTICA E NOME FANTASIA ---
+    st.markdown("### 📋 Prévia dos Dados Brutos (Primeiras 5 linhas)")
+    cols_previa = []
+    for c in df_raw.columns:
+        c_l = c.strip().lower()
+        if "atividade" in c_l or "turística" in c_l or "turistica" in c_l:
+            cols_previa.append(c)
+            break
+    for c in df_raw.columns:
+        c_l = c.strip().lower()
+        if "nome fantasia" in c_l or "fantasia" in c_l:
+            cols_previa.append(c)
+            break
+    
+    # Se não achar exatamente com esses nomes, pega as duas primeiras colunas disponíveis para não quebrar
+    if len(cols_previa) < 2 and len(df_raw.columns) >= 2:
+        cols_previa = list(df_raw.columns[:2])
+
+    st.dataframe(df_raw[cols_previa].head(5), use_container_width=True)
+    st.markdown("---")
 
     # Identificar colunas de Estado e Município de forma flexível
     col_uf = None
@@ -261,7 +276,6 @@ if os.path.exists(caminho_arquivo):
     data_hoje = datetime.now().strftime("%Y-%m-%d")
     calendario = obter_calendario_nacional(ano_atual, uf_selecionada)
 
-    # Verifica se há feriado hoje
     feriado_hoje = next((f for f in calendario if f["date"] == data_hoje), None)
 
     if feriado_hoje:
