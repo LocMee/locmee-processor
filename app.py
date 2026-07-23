@@ -6,7 +6,7 @@ import re
 # Configuração da página para aproveitar bem o espaço
 st.set_page_config(page_title="LocMee Data Processor", layout="wide")
 
-st.title("🔄 LocMee Data Processor (v4.5)")
+st.title("🔄 LocMee Data Processor (v4.6)")
 st.markdown("Consulta rápida, organizada e integrada ao repositório para o trade turístico.")
 
 # Autenticação segura via Secrets do Streamlit
@@ -59,11 +59,16 @@ def limpar_preposicoes_nome(texto):
 def higienizar_base(df):
     col_alvo = None
     for col in df.columns:
-        col_limpa = col.strip().lower()
-        if "e-mail" in col_limpa or "email" in col_limpa:
-            if "comercial" in col_limpa:
-                col_alvo = col
-                break
+        if col.strip().lower() == "e-mail comercial" or col.strip().lower() == "email comercial":
+            col_alvo = col
+            break
+            
+    if not col_alvo:
+        for col in df.columns:
+            if "e-mail" in col.lower() or "email" in col.lower():
+                if "comercial" in col.lower():
+                    col_alvo = col
+                    break
     
     if not col_alvo:
         for col in df.columns:
@@ -100,7 +105,7 @@ def higienizar_base(df):
                 
         df = df[~mask_proibido].reset_index(drop=True)
 
-    # Aplica a limpeza de preposições nas colunas de nome/responsável
+    # Aplica a limpeza de preposições nas colunas de nome / responsável
     for col in df.columns:
         if any(t in col.lower() for t in ["nome", "fantasia", "razao", "responsável"]):
             df[col] = df[col].apply(limpar_preposicoes_nome)
@@ -111,17 +116,17 @@ def reorganizar_colunas(df, tipo_planilha):
     cols = list(df.columns)
     
     if tipo_planilha == "Agências de Turismo":
-        alvos = ["Atividade Turística", "Nome Fantasia"]
+        alvos = ["Atividade Turística", "Nome Fantasia", "Nome do Responsável", "E-mail Comercial"]
     elif tipo_planilha == "Guias de Turismo":
-        alvos = ["Atividade Turística", "Nome do Responsável"]
+        alvos = ["Atividade Turística", "Nome do Responsável", "E-mail Comercial"]
     elif tipo_planilha == "Meio de Hospedagem":
-        alvos = ["Atividade Turística", "Nome Fantasia"]
+        alvos = ["Atividade Turística", "Nome Fantasia", "Nome do Responsável", "E-mail Comercial"]
     elif tipo_planilha == "Locadora de Veículos":
-        alvos = ["Atividade Turística", "Nome Fantasia"]
+        alvos = ["Atividade Turística", "Nome Fantasia", "Nome do Responsável", "E-mail Comercial"]
     else:
-        alvos = ["Atividade Turística", "Nome Fantasia"]
+        alvos = ["Atividade Turística", "Nome Fantasia", "Nome do Responsável", "E-mail Comercial"]
 
-    novas_cols = [c for c in alvos if c in cols] + [c for c in cols if c not in cols]
+    novas_cols = [c for c in alvos if c in cols] + [c for c in cols if c not in alvos]
     return df[novas_cols]
 
 opcoes_planilhas = {
@@ -143,7 +148,7 @@ if os.path.exists(caminho_arquivo):
 
     st.success(f"Base carregada e limpa com sucesso: **{tipo_atual}** ({len(df)} registros válidos)")
     
-    # BOTÕES DE DOWNLOAD NO TOPO (COMPLETA + ENXUTA EXCLUSIVA PARA MARKETING)
+    # OPÇÕES DE DOWNLOAD NO TOPO
     st.markdown("### 📥 Opções de Download")
     col1, col2 = st.columns(2)
     
@@ -157,40 +162,42 @@ if os.path.exists(caminho_arquivo):
         )
         
     with col2:
-        # Criar a base estritamente enxuta para marketing (apenas Nome e E-mail Comercial)
+        # Identificação exata das colunas padronizadas para marketing
         col_nome_mkt = None
+        col_email_mkt = None
+        
         for c in df.columns:
-            if "nome" in c.lower() or "fantasia" in c.lower():
+            c_lower = c.strip().lower()
+            if c_lower == "nome do responsável" or c_lower == "nome do responsavel":
                 col_nome_mkt = c
                 break
-                
-        col_email_mkt = None
-        for c in df.columns:
-            if "e-mail" in c.lower() or "email" in c.lower():
-                if "comercial" in c.lower():
-                    col_email_mkt = c
-                    break
-        if not col_email_mkt:
+        
+        if not col_nome_mkt:
             for c in df.columns:
-                if "e-mail" in c.lower() or "email" in c.lower():
-                    col_email_mkt = c
+                if "nome" in c.lower() or "fantasia" in c.lower():
+                    col_nome_mkt = c
                     break
+
+        for c in df.columns:
+            c_lower = c.strip().lower()
+            if c_lower == "e-mail comercial" or c_lower == "email comercial":
+                col_email_mkt = c
+                break
 
         if col_nome_mkt and col_email_mkt:
             df_mkt = df[[col_nome_mkt, col_email_mkt]].dropna(subset=[col_email_mkt])
-            # Remove e-mails vazios ou "nan"
             df_mkt = df_mkt[df_mkt[col_email_mkt].astype(str).str.strip() != ""]
             csv_mkt = df_mkt.to_csv(index=False).encode('utf-8')
             
             st.download_button(
-                label=f"🎯 Baixar Enxuta Marketing (Nome + E-mail)",
+                label=f"🎯 Baixar Enxuta Marketing (Responsável + E-mail)",
                 data=csv_mkt,
                 file_name=f"marketing_{tipo_atual.lower().replace(' ', '_')}_enxuta.csv",
                 mime="text/csv",
                 type="primary"
             )
         else:
-            st.info("Colunas de Nome ou E-mail não identificadas para o formato enxuto.")
+            st.warning("Colunas 'Nome do Responsável' ou 'E-mail Comercial' não localizadas para a versão enxuta.")
 
     st.markdown("---")
     
@@ -223,18 +230,19 @@ if os.path.exists(caminho_arquivo):
                                 return str(val)
                     return "Não informado"
 
-                nome_fantasia = achar_valor(["nome fantasia", "razão social", "responsável", "nome"])
+                nome_fantasia = achar_valor(["nome fantasia", "razão social", "nome"])
                 certificado = achar_valor(["numero do certificado", "certificado", "cadastur"])
-                responsavel = achar_valor(["responsável", "contato", "sócio", "proprietário"])
+                responsavel = achar_valor(["nome do responsável", "nome do responsavel", "responsável", "contato"])
                 telefone = achar_valor(["telefones", "telefone", "celular", "whatsapp", "fone"])
                 
                 email_comercial = "Não informado"
                 for col in df.columns:
-                    if "e-mail" in col.lower() or "email" in col.lower():
+                    c_l = col.strip().lower()
+                    if c_l == "e-mail comercial" or c_l == "email comercial" or "e-mail" in c_l or "email" in c_l:
                         val = row[col]
-                        if pd.notna(val):
+                        if pd.notna(val) and str(val).strip() != "":
                             email_comercial = str(val)
-                        break
+                            break
 
                 ficha_texto = (
                     f"🏢 Nome: {nome_fantasia}\n"
