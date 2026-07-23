@@ -6,7 +6,7 @@ import re
 # Configuração da página para aproveitar bem o espaço
 st.set_page_config(page_title="LocMee Data Processor", layout="wide")
 
-st.title("🔄 LocMee Data Processor (v4.7)")
+st.title("🔄 LocMee Data Processor (v4.8)")
 st.markdown("Consulta rápida, organizada e integrada ao repositório para o trade turístico.")
 
 # Autenticação segura via Secrets do Streamlit
@@ -54,7 +54,6 @@ def formatar_nome_responsavel(texto):
     tokens = texto.split()
     tokens_filtrados = [t for t in tokens if t.lower() not in palavras_ignorar]
     
-    # Mantém estritamente apenas os 2 primeiros nomes válidos
     primeiros_dois = tokens_filtrados[:2]
     return " ".join(primeiros_dois)
 
@@ -120,15 +119,15 @@ def reorganizar_colunas(df, tipo_planilha):
     cols = list(df.columns)
     
     if tipo_planilha == "Agências de Turismo":
-        alvos = ["Atividade Turística", "Nome Fantasia", "Nome do Responsável", "E-mail Comercial"]
+        alvos = ["Atividade Turística", "Nome Fantasia", "Nome do Responsável", "E-mail Comercial", "Município", "UF"]
     elif tipo_planilha == "Guias de Turismo":
-        alvos = ["Atividade Turística", "Nome do Responsável", "E-mail Comercial"]
+        alvos = ["Atividade Turística", "Nome do Responsável", "E-mail Comercial", "Município", "UF"]
     elif tipo_planilha == "Meio de Hospedagem":
-        alvos = ["Atividade Turística", "Nome Fantasia", "Nome do Responsável", "E-mail Comercial"]
+        alvos = ["Atividade Turística", "Nome Fantasia", "Nome do Responsável", "E-mail Comercial", "Município", "UF"]
     elif tipo_planilha == "Locadora de Veículos":
-        alvos = ["Atividade Turística", "Nome Fantasia", "Nome do Responsável", "E-mail Comercial"]
+        alvos = ["Atividade Turística", "Nome Fantasia", "Nome do Responsável", "E-mail Comercial", "Município", "UF"]
     else:
-        alvos = ["Atividade Turística", "Nome Fantasia", "Nome do Responsável", "E-mail Comercial"]
+        alvos = ["Atividade Turística", "Nome Fantasia", "Nome do Responsável", "E-mail Comercial", "Município", "UF"]
 
     novas_cols = [c for c in alvos if c in cols] + [c for c in cols if c not in alvos]
     return df[novas_cols]
@@ -175,7 +174,6 @@ if os.path.exists(caminho_arquivo):
 
     with col_f2:
         if col_mun:
-            # Se houver UF selecionada, filtra os municípios daquele estado para facilitar
             if col_uf and uf_selecionada != "Todos":
                 df_mun_filtrado = df_raw[df_raw[col_uf].astype(str) == uf_selecionada]
             else:
@@ -285,6 +283,8 @@ if os.path.exists(caminho_arquivo):
                 certificado = achar_valor(["numero do certificado", "certificado", "cadastur"])
                 responsavel = achar_valor(["nome do responsável", "nome do responsavel", "responsável", "contato"])
                 telefone = achar_valor(["telefones", "telefone", "celular", "whatsapp", "fone"])
+                municipio = achar_valor(["município", "municipio", "cidade"])
+                uf = achar_valor(["uf", "estado", "sigla uf"])
                 
                 email_comercial = "Não informado"
                 for col in df.columns:
@@ -299,6 +299,7 @@ if os.path.exists(caminho_arquivo):
                     f"🏢 Nome: {nome_fantasia}\n"
                     f"📄 Inscrição Cadastur: {certificado}\n"
                     f"👤 Responsável: {responsavel}\n"
+                    f"📍 Local: {municipio} - {uf}\n"
                     f"📞 Telefone: {telefone}\n"
                     f"📧 E-mail: {email_comercial}"
                 )
@@ -308,7 +309,7 @@ if os.path.exists(caminho_arquivo):
                     st.text_area(
                         label=f"Ficha - {nome_fantasia}",
                         value=ficha_texto,
-                        height=130,
+                        height=145,
                         key=f"ficha_{idx}"
                     )
                     st.markdown("---")
