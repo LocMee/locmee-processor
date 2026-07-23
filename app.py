@@ -4,6 +4,7 @@ import os
 import re
 import requests
 from datetime import datetime
+import noticias_locmee  # <--- 1. IMPORTANDO O NOVO MÓDULO
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="LocMee Data Processor", layout="wide")
@@ -166,180 +167,187 @@ def reorganizar_colunas(df, tipo_planilha):
     novas_cols = [c for c in alvos if c in cols] + [c for c in cols if c not in alvos]
     return df[novas_cols]
 
-# --- LÓGICA PRINCIPAL ---
-opcoes_planilhas = {
-    "Agências de Turismo": "agencias.xlsx",
-    "Guias de Turismo": "guias.xlsx",
-    "Meio de Hospedagem": "hospedagens.xlsx",
-    "Locadora de Veículos": "locadoras.xlsx",
-    "Parques e Outros": "parques.xlsx"
-}
+# --- CRIAÇÃO DAS ABAS PRINCIPAIS ---
+aba_consulta, aba_radar = st.tabs(["📊 Consultas de Bases", "🌐 Radar Global LocMee"])
 
-tipo_atual = st.selectbox("Selecione a base de dados que deseja consultar:", list(opcoes_planilhas.keys()))
-caminho_arquivo = opcoes_planilhas[tipo_atual]
+with aba_consulta:
+    opcoes_planilhas = {
+        "Agências de Turismo": "agencias.xlsx",
+        "Guias de Turismo": "guias.xlsx",
+        "Meio de Hospedagem": "hospedagens.xlsx",
+        "Locadora de Veículos": "locadoras.xlsx",
+        "Parques e Outros": "parques.xlsx"
+    }
 
-if os.path.exists(caminho_arquivo):
-    with st.spinner(f"📂 Lendo dados brutos de {tipo_atual}..."):
-        df_raw = pd.read_excel(caminho_arquivo)
+    tipo_atual = st.selectbox("Selecione a base de dados que deseja consultar:", list(opcoes_planilhas.keys()))
+    caminho_arquivo = opcoes_planilhas[tipo_atual]
 
-    # --- PRÉVIA DOS DADOS BRUTOS ---
-    st.markdown("#### 📋 Prévia (5 linhas)")
-    cols_previa = []
-    for c in df_raw.columns:
-        c_l = c.strip().lower()
-        if "atividade" in c_l and "turística" in c_l: cols_previa.append(c); break
-    for c in df_raw.columns:
-        c_l = c.strip().lower()
-        if "nome fantasia" in c_l or "fantasia" in c_l: cols_previa.append(c); break
-    if len(cols_previa) < 2 and len(df_raw.columns) >= 2: cols_previa = list(df_raw.columns[:2])
-    st.dataframe(df_raw[cols_previa].head(5), use_container_width=True, height=212)
+    if os.path.exists(caminho_arquivo):
+        with st.spinner(f"📂 Lendo dados brutos de {tipo_atual}..."):
+            df_raw = pd.read_excel(caminho_arquivo)
 
-    # Identificar colunas de Estado e Município
-    col_uf = col_mun = None
-    for c in df_raw.columns:
-        c_l = c.strip().lower()
-        if c_l in ["uf", "estado", "sigla uf"]: col_uf = c
-        if c_l in ["município", "municipio", "cidade"]: col_mun = c
-
-    # Filtros geográficos prévios
-    st.markdown("#### 📍 Filtro Geográfico Prévio")
-    col_f1, col_f2 = st.columns(2)
-    uf_selecionada = mun_selecionado = "Todos"
-
-    with col_f1:
-        if col_uf:
-            lista_ufs = ["Todos"] + sorted([str(x) for x in df_raw[col_uf].dropna().unique() if str(x).strip() != ""])
-            uf_selecionada = st.selectbox("Filtrar por Estado (UF):", lista_ufs, key="filtro_uf")
-        else: st.info("Coluna UF não localizada.")
-    with col_f2:
-        if col_mun:
-            if col_uf and uf_selecionada != "Todos": df_mun_filtrado = df_raw[df_raw[col_uf].astype(str) == uf_selecionada]
-            else: df_mun_filtrado = df_raw
-            lista_muns = ["Todos"] + sorted([str(x) for x in df_mun_filtrado[col_mun].dropna().unique() if str(x).strip() != ""])
-            mun_selecionado = st.selectbox("Filtrar por Município:", lista_muns, key="filtro_mun")
-        else: st.info("Coluna Município não localizada.")
-
-    # --- ALERTA DE FERIADOS ---
-    ano_atual = datetime.now().year
-    data_hoje = datetime.now().strftime("%Y-%m-%d")
-    calendario = obter_calendario_nacional(ano_atual, uf_selecionada)
-    feriado_hoje = next((f for f in calendario if f["date"] == data_hoje), None)
-    if feriado_hoje: st.success(f"🎯 **Alerta de Feriado Hoje!** **{feriado_hoje['name']}**.")
-    else:
-        proximos = [f for f in calendario if f["date"] > data_hoje]
-        if proximos:
-            proximo = proximos[0]
-            data_formatada = datetime.strptime(proximo["date"], "%Y-%m-%d").strftime("%d/%m/%Y")
-            st.info(f"📅 **Próximo Feriado ({proximo['tipo']}):** **{proximo['name']}** em **{data_formatada}**.")
-
-    # Aplicação dos filtros geográficos
-    df_filtrado_geo = df_raw.copy()
-    if col_uf and uf_selecionada != "Todos": df_filtrado_geo = df_filtrado_geo[df_filtrado_geo[col_uf].astype(str) == uf_selecionada]
-    if col_mun and mun_selecionado != "Todos": df_filtrado_geo = df_filtrado_geo[df_filtrado_geo[col_mun].astype(str) == mun_selecionado]
-
-    with st.spinner(f"🔄 Higienizando {len(df_filtrado_geo)} registros..."):
-        df = higienizar_base(df_filtrado_geo)
-        df = reorganizar_colunas(df, tipo_atual)
-
-    st.success(f"Base carregada e limpa: **{tipo_atual}** ({len(df)} registros válidos)")
-    
-    # --- OPÇÕES DE DOWNLOAD CORRIGIDAS ---
-    st.markdown("#### 📥 Opções de Download")
-    col_dl1, col_dl2 = st.columns(2)
-    with col_dl1:
-        st.download_button(
-            label=f"📥 Baixar Base Completa (.csv)",
-            data=df.to_csv(index=False).encode('utf-8'),
-            file_name=f"planilha_{tipo_atual.lower().replace(' ', '_')}_completa.csv",
-            mime="text/csv"
-        )
-    with col_dl2:
-        col_nome_mkt = col_email_mkt = None
-        for c in df.columns:
+        # --- PRÉVIA DOS DADOS BRUTOS ---
+        st.markdown("#### 📋 Prévia (5 linhas)")
+        cols_previa = []
+        for c in df_raw.columns:
             c_l = c.strip().lower()
-            if c_l in ["nome do responsável", "nome do responsavel"] or "responsável" in c_l or "responsavel" in c_l:
-                col_nome_mkt = c
-                break
-        if not col_nome_mkt:
+            if "atividade" in c_l and "turística" in c_l: cols_previa.append(c); break
+        for c in df_raw.columns:
+            c_l = c.strip().lower()
+            if "nome fantasia" in c_l or "fantasia" in c_l: cols_previa.append(c); break
+        if len(cols_previa) < 2 and len(df_raw.columns) >= 2: cols_previa = list(df_raw.columns[:2])
+        st.dataframe(df_raw[cols_previa].head(5), use_container_width=True, height=212)
+
+        # Identificar colunas de Estado e Município
+        col_uf = col_mun = None
+        for c in df_raw.columns:
+            c_l = c.strip().lower()
+            if c_l in ["uf", "estado", "sigla uf"]: col_uf = c
+            if c_l in ["município", "municipio", "cidade"]: col_mun = c
+
+        # Filtros geográficos prévios
+        st.markdown("#### 📍 Filtro Geográfico Prévio")
+        col_f1, col_f2 = st.columns(2)
+        uf_selecionada = mun_selecionado = "Todos"
+
+        with col_f1:
+            if col_uf:
+                lista_ufs = ["Todos"] + sorted([str(x) for x in df_raw[col_uf].dropna().unique() if str(x).strip() != ""])
+                uf_selecionada = st.selectbox("Filtrar por Estado (UF):", lista_ufs, key="filtro_uf")
+            else: st.info("Coluna UF não localizada.")
+        with col_f2:
+            if col_mun:
+                if col_uf and uf_selecionada != "Todos": df_mun_filtrado = df_raw[df_raw[col_uf].astype(str) == uf_selecionada]
+                else: df_mun_filtrado = df_raw
+                lista_muns = ["Todos"] + sorted([str(x) for x in df_mun_filtrado[col_mun].dropna().unique() if str(x).strip() != ""])
+                mun_selecionado = st.selectbox("Filtrar por Município:", lista_muns, key="filtro_mun")
+            else: st.info("Coluna Município não localizada.")
+
+        # --- ALERTA DE FERIADOS ---
+        ano_atual = datetime.now().year
+        data_hoje = datetime.now().strftime("%Y-%m-%d")
+        calendario = obter_calendario_nacional(ano_atual, uf_selecionada)
+        feriado_hoje = next((f for f in calendario if f["date"] == data_hoje), None)
+        if feriado_hoje: st.success(f"🎯 **Alerta de Feriado Hoje!** **{feriado_hoje['name']}**.")
+        else:
+            proximos = [f for f in calendario if f["date"] > data_hoje]
+            if proximos:
+                proximo = proximos[0]
+                data_formatada = datetime.strptime(proximo["date"], "%Y-%m-%d").strftime("%d/%m/%Y")
+                st.info(f"📅 **Próximo Feriado ({proximo['tipo']}):** **{proximo['name']}** em **{data_formatada}**.")
+
+        # Aplicação dos filtros geográficos
+        df_filtrado_geo = df_raw.copy()
+        if col_uf and uf_selecionada != "Todos": df_filtrado_geo = df_filtrado_geo[df_filtrado_geo[col_uf].astype(str) == uf_selecionada]
+        if col_mun and mun_selecionado != "Todos": df_filtrado_geo = df_filtrado_geo[df_filtrado_geo[col_mun].astype(str) == mun_selecionado]
+
+        with st.spinner(f"🔄 Higienizando {len(df_filtrado_geo)} registros..."):
+            df = higienizar_base(df_filtrado_geo)
+            df = reorganizar_colunas(df, tipo_atual)
+
+        st.success(f"Base carregada e limpa: **{tipo_atual}** ({len(df)} registros válidos)")
+        
+        # --- OPÇÕES DE DOWNLOAD ---
+        st.markdown("#### 📥 Opções de Download")
+        col_dl1, col_dl2 = st.columns(2)
+        with col_dl1:
+            st.download_button(
+                label=f"📥 Baixar Base Completa (.csv)",
+                data=df.to_csv(index=False).encode('utf-8'),
+                file_name=f"planilha_{tipo_atual.lower().replace(' ', '_')}_completa.csv",
+                mime="text/csv"
+            )
+        with col_dl2:
+            col_nome_mkt = col_email_mkt = None
             for c in df.columns:
-                if "nome" in c.lower() or "fantasia" in c.lower():
+                c_l = c.strip().lower()
+                if c_l in ["nome do responsável", "nome do responsavel"] or "responsável" in c_l or "responsavel" in c_l:
                     col_nome_mkt = c
                     break
+            if not col_nome_mkt:
+                for c in df.columns:
+                    if "nome" in c.lower() or "fantasia" in c.lower():
+                        col_nome_mkt = c
+                        break
 
-        for c in df.columns:
-            c_l = c.strip().lower()
-            if c_l in ["e-mail comercial", "email comercial"] or ("e-mail" in c_l and "comercial" in c_l):
-                col_email_mkt = c
-                break
+            for c in df.columns:
+                c_l = c.strip().lower()
+                if c_l in ["e-mail comercial", "email comercial"] or ("e-mail" in c_l and "comercial" in c_l):
+                    col_email_mkt = c
+                    break
 
-        if col_nome_mkt and col_email_mkt:
-            df_mkt = df[[col_nome_mkt, col_email_mkt]].dropna(subset=[col_email_mkt])
-            df_mkt = df_mkt[df_mkt[col_email_mkt].astype(str).str.strip() != ""]
-            st.download_button(
-                label=f"🎯 Baixar Enxuta Marketing",
-                data=df_mkt.to_csv(index=False).encode('utf-8'),
-                file_name=f"marketing_{tipo_atual.lower().replace(' ', '_')}_enxuta.csv",
-                mime="text/csv",
-                type="primary"
-            )
-        else:
-            st.warning("Colunas de marketing não localizadas.")
-
-    st.markdown("---")
-    
-    # --- BUSCA E CONSULTA DE REGISTROS ---
-    st.subheader("🔍 Consulta e Ficha de Cadastro")
-    termo_busca = st.text_input("Digite o termo, Nome Fantasia, Responsável ou E-mail:")
-
-    if termo_busca:
-        with st.spinner("⏳ Buscando registro na base de dados..."):
-            termo_limpo = termo_busca.strip()
-            padrao_busca = rf'\b{re.escape(termo_limpo)}\b'
-            mask_busca = df.astype(str).apply(
-                lambda row: row.str.contains(padrao_busca, case=False, na=False, regex=True)
-            ).any(axis=1)
-            df_busca = df[mask_busca]
-        
-        if len(df_busca) > 0:
-            st.info(f"Encontrado(s) {len(df_busca)} registro(s) correspondente(s).")
-            for idx, row in df_busca.head(10).iterrows():
-                def achar_valor(palavras_chave):
-                    for col in df.columns:
-                        if any(p in col.lower() for p in palavras_chave):
-                            val = row[col]
-                            if pd.notna(val): return str(val)
-                    return "Não informado"
-
-                nome_fantasia = achar_valor(["nome fantasia", "razão social", "nome"])
-                certificado = achar_valor(["numero do certificado", "certificado", "cadastur"])
-                responsavel = achar_valor(["nome do responsável", "nome do responsavel", "responsável", "contato"])
-                telefone = achar_valor(["telefones", "telefone", "celular", "whatsapp", "fone"])
-                municipio = achar_valor(["município", "municipio", "cidade"])
-                uf = achar_valor(["uf", "estado", "sigla uf"])
-                
-                email_comercial = "Não informado"
-                for col in df.columns:
-                    c_l = col.strip().lower()
-                    if c_l in ["e-mail comercial", "email comercial"] or "e-mail" in c_l or "email" in c_l:
-                        val = row[col]
-                        if pd.notna(val) and str(val).strip() != "":
-                            email_comercial = str(val)
-                            break
-
-                ficha_texto = (
-                    f"🏢 Nome: {nome_fantasia}\n"
-                    f"📄 Inscrição Cadastur: {certificado}\n"
-                    f"👤 Responsável: {responsavel}\n"
-                    f"📍 Local: {municipio} - {uf}\n"
-                    f"📞 Telefone: {telefone}\n"
-                    f"📧 E-mail: {email_comercial}"
+            if col_nome_mkt and col_email_mkt:
+                df_mkt = df[[col_nome_mkt, col_email_mkt]].dropna(subset=[col_email_mkt])
+                df_mkt = df_mkt[df_mkt[col_email_mkt].astype(str).str.strip() != ""]
+                st.download_button(
+                    label=f"🎯 Baixar Enxuta Marketing",
+                    data=df_mkt.to_csv(index=False).encode('utf-8'),
+                    file_name=f"marketing_{tipo_atual.lower().replace(' ', '_')}_enxuta.csv",
+                    mime="text/csv",
+                    type="primary"
                 )
+            else:
+                st.warning("Colunas de marketing não localizadas.")
 
-                with st.container():
-                    st.markdown(f"**Registro #{idx + 1}**")
-                    st.text_area(label=f"Ficha - {nome_fantasia}", value=ficha_texto, height=145, key=f"ficha_{idx}")
-                    st.markdown("---")
-        else:
-            st.warning("⚠️ Registro não localizado. Nenhum cadastro corresponde ao termo digitado.")
-else:
-    st.error(f"⚠️ O arquivo correspondente (`{caminho_arquivo}`) ainda não foi encontrado na raiz do repositório.")
+        st.markdown("---")
+        
+        # --- BUSCA E CONSULTA DE REGISTROS ---
+        st.subheader("🔍 Consulta e Ficha de Cadastro")
+        termo_busca = st.text_input("Digite o termo, Nome Fantasia, Responsável ou E-mail:")
+
+        if termo_busca:
+            with st.spinner("⏳ Buscando registro na base de dados..."):
+                termo_limpo = termo_busca.strip()
+                padrao_busca = rf'\b{re.escape(termo_limpo)}\b'
+                mask_busca = df.astype(str).apply(
+                    lambda row: row.str.contains(padrao_busca, case=False, na=False, regex=True)
+                ).any(axis=1)
+                df_busca = df[mask_busca]
+            
+            if len(df_busca) > 0:
+                st.info(f"Encontrado(s) {len(df_busca)} registro(s) correspondente(s).")
+                for idx, row in df_busca.head(10).iterrows():
+                    def achar_valor(palavras_chave):
+                        for col in df.columns:
+                            if any(p in col.lower() for p in palavras_chave):
+                                val = row[col]
+                                if pd.notna(val): return str(val)
+                        return "Não informado"
+
+                    nome_fantasia = achar_valor(["nome fantasia", "razão social", "nome"])
+                    certificado = achar_valor(["numero do certificado", "certificado", "cadastur"])
+                    responsavel = achar_valor(["nome do responsável", "nome do responsavel", "responsável", "contato"])
+                    telefone = achar_valor(["telefones", "telefone", "celular", "whatsapp", "fone"])
+                    municipio = achar_valor(["município", "municipio", "cidade"])
+                    uf = achar_valor(["uf", "estado", "sigla uf"])
+                    
+                    email_comercial = "Não informado"
+                    for col in df.columns:
+                        c_l = col.strip().lower()
+                        if c_l in ["e-mail comercial", "email comercial"] or "e-mail" in c_l or "email" in c_l:
+                            val = row[col]
+                            if pd.notna(val) and str(val).strip() != "":
+                                email_comercial = str(val)
+                                break
+
+                    ficha_texto = (
+                        f"🏢 Nome: {nome_fantasia}\n"
+                        f"📄 Inscrição Cadastur: {certificado}\n"
+                        f"👤 Responsável: {responsavel}\n"
+                        f"📍 Local: {municipio} - {uf}\n"
+                        f"📞 Telefone: {telefone}\n"
+                        f"📧 E-mail: {email_comercial}"
+                    )
+
+                    with st.container():
+                        st.markdown(f"**Registro #{idx + 1}**")
+                        st.text_area(label=f"Ficha - {nome_fantasia}", value=ficha_texto, height=145, key=f"ficha_{idx}")
+                        st.markdown("---")
+            else:
+                st.warning("⚠️ Registro não localizado. Nenhum cadastro corresponde ao termo digitado.")
+    else:
+        st.error(f"⚠️ O arquivo correspondente (`{caminho_arquivo}`) ainda não foi encontrado na raiz do repositório.")
+
+with aba_radar:
+    # --- CHAMADA DO MÓDULO DE RADAR GLOBAL ---
+    noticias_locmee.buscar_e_transformar_noticias()
