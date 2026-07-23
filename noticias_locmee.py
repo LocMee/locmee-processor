@@ -3,9 +3,9 @@ import random
 
 def buscar_e_transformar_noticias():
     st.subheader("🌐 Radar Global LocMee & Gerador LocNews")
-    st.markdown("Curadoria de inteligência internacional aprofundada (leitura de 1-2 min) e adaptada para o mercado B2B brasileiro.")
+    st.markdown("Curadoria de inteligência internacional aprofundada, análise B2B e **sugestões de imagens** para o seu blog.")
 
-    # Banco de matérias aprofundadas cobrindo os pilares do turismo
+    # Banco de matérias aprofundadas com sugestões visuais dedicadas
     banco_noticias = [
         {
             "categoria": "Mercado Aéreo",
@@ -24,6 +24,7 @@ def buscar_e_transformar_noticias():
                 "**Análise LocNews:** No ecossistema B2B atual, depender exclusivamente de grandes hubs centralizados engessa a operação das agências e operadores. "
                 "O profissional que passar a olhar para essas novas conexões diretas ganha margem real de negociação e consegue entregar um produto muito mais ágil e competitivo para o cliente final."
             ),
+            "imagem_sugestao": "📸 **Sugestão de Imagem para o Post:** Uma aeronave comercial moderna voando sobre nuvens ao entardecer, com iluminação corporativa elegante. Estilo limpo e tecnológico. (Banco: Unsplash - termo 'aviation business').",
             "fonte": "Global Aviation Wire"
         },
         {
@@ -42,6 +43,7 @@ def buscar_e_transformar_noticias():
                 "**Análise LocNews:** Vender cruzeiros deixou de ser apenas a comercialização de bilhetes em massa; transformou-se em uma consultoria completa de estilo de vida. "
                 "Para as agências parceiras no Brasil, posicionar esse produto no portfólio eleva o ticket médio consideravelmente e garante uma taxa de fidelização que o turismo convencional raramente alcança."
             ),
+            "imagem_sugestao": "📸 **Sugestão de Imagem para o Post:** Vista panorâmica de um navio de cruzeiro sofisticado atracado em um destino de águas cristalinas ao amanhecer. Foco em luxo e exclusividade. (Banco: Pexels - termo 'luxury cruise').",
             "fonte": "Cruise Industry Trends"
         },
         {
@@ -59,6 +61,7 @@ def buscar_e_transformar_noticias():
                 "**Análise LocNews:** Esse movimento valida a tese central da LocMee: a tecnologia deve trabalhar sempre a favor da capilaridade humana. "
                 "O agente de viagens nacional que une a agilidade de uma plataforma digital integrada à sua capacidade consultiva se torna absolutamente insubstituível diante de robôs de vendas padronizadas."
             ),
+            "imagem_sugestao": "📸 **Sugestão de Imagem para o Post:** Profissional de turismo trabalhando com tablet e notebook em uma mesa moderna de escritório, exibindo gráficos de conexões e redes globais. (Banco: Unsplash - termo 'travel technology').",
             "fonte": "Tour Operator Insight"
         },
         {
@@ -76,6 +79,7 @@ def buscar_e_transformar_noticias():
                 "**Análise LocNews:** O mercado B2B brasileiro precisa absorver e antecipar essa demanda urgentemente. Oferecer pacotes focados em saúde preventiva e reconexão "
                 "é a chave mestra para atrair um público nacional com altíssimo poder aquisitivo que valoriza profundamente a curadoria especializada do agente de viagens."
             ),
+            "imagem_sugestao": "📸 **Sugestão de Imagem para o Post:** Resort boutique sustentável integrado à natureza, com piscina de borda infinita em meio a montanhas ou floresta verdejante. Clima de paz e exclusividade. (Banco: Pexels - termo 'wellness resort').",
             "fonte": "Wellness Travel Report"
         }
     ]
@@ -88,16 +92,16 @@ def buscar_e_transformar_noticias():
     with col_btn1:
         if st.button("🔄 Sortear 3 Novas Matérias para o LocNews"):
             st.session_state["noticias_selecionadas"] = random.sample(banco_noticias, 3)
-            st.toast("3 novas matérias aprofundadas sorteadas!", icon="🎯")
+            st.toast("3 novas matérias sorteadas com sugestões visuais!", icon="🎯")
 
     st.markdown("---")
 
-    # Exibição das 3 matérias formatadas para o blog e análise comercial
+    # Exibição das 3 matérias formatadas
     for i, item in enumerate(st.session_state["noticias_selecionadas"], 1):
         with st.container():
             st.markdown(f"### 📰 Matéria #{i}: [{item['categoria']}]")
             
-            # Título com opção de toque/cópia facilitada
+            # Caixa de Título com cópia facilitada
             st.markdown(f"**Título da Matéria:**")
             st.text_area(
                 label=f"Título - {i}",
@@ -106,7 +110,10 @@ def buscar_e_transformar_noticias():
                 key=f"titulo_box_{i}"
             )
             
-            # Texto principal robusto pronto para o blog
+            # Sugestão de Imagem
+            st.info(item['imagem_sugestao'])
+            
+            # Caixa de Texto Base Completo para o Blog
             st.markdown("**📄 Texto Base Completo para o Blog (Leitura de 1-2 min):**")
             st.text_area(
                 label=f"Texto base - {item['titulo']}",
@@ -115,7 +122,7 @@ def buscar_e_transformar_noticias():
                 key=f"texto_base_{i}"
             )
             
-            # Análise exclusiva LocNews adaptada ao mercado brasileiro
+            # Análise LocNews
             st.markdown("**💡 Análise LocNews (Visão Estratégica B2B):**")
             st.info(item['analise'])
             
