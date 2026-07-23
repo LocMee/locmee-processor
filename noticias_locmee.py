@@ -1,7 +1,7 @@
 import streamlit as st
 import random
 
-def buscar_e_transformار_noticias():
+def buscar_e_transformar_noticias():
     st.subheader("🌐 Radar Global LocMee & Gerador LocNews")
     st.markdown("Curadoria de inteligência internacional aprofundada (leitura de 1-2 min) e adaptada para o mercado B2B brasileiro.")
 
@@ -33,7 +33,7 @@ def buscar_e_transformار_noticias():
                 "As tendências globais do setor marítimo apontam para um crescimento exponencial e contínuo na procura por cruzeiros temáticos, expedições de nicho "
                 "e embarcações de pequeno e médio porte, fortemente voltadas para a experiência imersiva e a exclusividade. Enquanto o turismo de massa busca volume, "
                 "o segmento náutico de alto padrão tem atraído viajantes dispostos a investir mais em roteiros diferenciados.\n\n"
-                "Esse movimento reflete uma mudança drástica no comportamento de consumo pós-pandemia: o foco absoluta na vivência e na personalização. "
+                "Esse movimento reflete uma mudança drástica no comportamento de consumo pós-pandemia: o foco absoluto na vivência e na personalização. "
                 "Armadoras internacionais estão investindo em rotas que incluem paradas prolongadas, experiências culturais profundas a bordo e serviços ultra-personalizados. "
                 "Para o trade turístico, comercializar esse formato exige uma consultoria especializada, transformando a venda de uma simples cabine em uma experiência inesquecível de viagem.\n\n"
                 "_Fonte de referência internacional: Cruise Industry Trends_"
