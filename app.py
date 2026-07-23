@@ -6,7 +6,7 @@ import re
 # Configuração da página para aproveitar bem o espaço
 st.set_page_config(page_title="LocMee Data Processor", layout="wide")
 
-st.title("🔄 LocMee Data Processor (v4.4)")
+st.title("🔄 LocMee Data Processor (v4.5)")
 st.markdown("Consulta rápida, organizada e integrada ao repositório para o trade turístico.")
 
 # Autenticação segura via Secrets do Streamlit
@@ -49,7 +49,6 @@ def limpar_preposicoes_nome(texto):
     if pd.isna(texto) or not isinstance(texto, str):
         return texto
     
-    # Palavras a desconsiderar (isoladas por espaços)
     palavras_ignorar = {"de", "do", "da", "dos", "das", "e", "e."}
     
     tokens = texto.split()
@@ -101,7 +100,7 @@ def higienizar_base(df):
                 
         df = df[~mask_proibido].reset_index(drop=True)
 
-    # Aplica a limpeza de preposições nas colunas de nome/responsável se existirem
+    # Aplica a limpeza de preposições nas colunas de nome/responsável
     for col in df.columns:
         if any(t in col.lower() for t in ["nome", "fantasia", "razao", "responsável"]):
             df[col] = df[col].apply(limpar_preposicoes_nome)
@@ -144,15 +143,55 @@ if os.path.exists(caminho_arquivo):
 
     st.success(f"Base carregada e limpa com sucesso: **{tipo_atual}** ({len(df)} registros válidos)")
     
-    # BOTÃO DE DOWNLOAD JÁ NO TOPO PARA FACILITAR NO CELULAR
-    csv = df.to_csv(index=False).encode('utf-8')
-    st.download_button(
-        label=f"📥 Baixar base completa de {tipo_atual} higienizada (.csv)",
-        data=csv,
-        file_name=f"planilha_{tipo_atual.lower().replace(' ', '_')}_marketing_enxuta.csv",
-        mime="text/csv"
-    )
+    # BOTÕES DE DOWNLOAD NO TOPO (COMPLETA + ENXUTA EXCLUSIVA PARA MARKETING)
+    st.markdown("### 📥 Opções de Download")
+    col1, col2 = st.columns(2)
     
+    with col1:
+        csv_completo = df.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label=f"📥 Baixar Base Completa (.csv)",
+            data=csv_completo,
+            file_name=f"planilha_{tipo_atual.lower().replace(' ', '_')}_completa.csv",
+            mime="text/csv"
+        )
+        
+    with col2:
+        # Criar a base estritamente enxuta para marketing (apenas Nome e E-mail Comercial)
+        col_nome_mkt = None
+        for c in df.columns:
+            if "nome" in c.lower() or "fantasia" in c.lower():
+                col_nome_mkt = c
+                break
+                
+        col_email_mkt = None
+        for c in df.columns:
+            if "e-mail" in c.lower() or "email" in c.lower():
+                if "comercial" in c.lower():
+                    col_email_mkt = c
+                    break
+        if not col_email_mkt:
+            for c in df.columns:
+                if "e-mail" in c.lower() or "email" in c.lower():
+                    col_email_mkt = c
+                    break
+
+        if col_nome_mkt and col_email_mkt:
+            df_mkt = df[[col_nome_mkt, col_email_mkt]].dropna(subset=[col_email_mkt])
+            # Remove e-mails vazios ou "nan"
+            df_mkt = df_mkt[df_mkt[col_email_mkt].astype(str).str.strip() != ""]
+            csv_mkt = df_mkt.to_csv(index=False).encode('utf-8')
+            
+            st.download_button(
+                label=f"🎯 Baixar Enxuta Marketing (Nome + E-mail)",
+                data=csv_mkt,
+                file_name=f"marketing_{tipo_atual.lower().replace(' ', '_')}_enxuta.csv",
+                mime="text/csv",
+                type="primary"
+            )
+        else:
+            st.info("Colunas de Nome ou E-mail não identificadas para o formato enxuto.")
+
     st.markdown("---")
     
     st.write("📋 **Pré-visualização (5 primeiras linhas):**")
