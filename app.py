@@ -8,7 +8,7 @@ from datetime import datetime
 # Configuração da página para aproveitar bem o espaço
 st.set_page_config(page_title="LocMee Data Processor", layout="wide")
 
-st.title("🔄 LocMee Data Processor (v4.11)")
+st.title("🔄 LocMee Data Processor (v4.12)")
 st.markdown("Consulta rápida, organizada e integrada ao repositório para o trade turístico.")
 
 # Autenticação segura via Secrets do Streamlit
@@ -207,9 +207,8 @@ if os.path.exists(caminho_arquivo):
     if feriado_hoje:
         nome_feriado = feriado_hoje["name"]
         local_aviso = f"Estado: {uf_selecionada}" if uf_selecionada != "Todos" else "Nacional"
-        st.success(🎯 **Alerta de Feriado Hoje!** O feriado **{nome_feriado}** é comemorado nesta data ({local_aviso}).)
+        st.success(f"🎯 **Alerta de Feriado Hoje!** O feriado **{nome_feriado}** é comemorado nesta data ({local_aviso}).")
     else:
-        # Opcional: Mostrar o próximo feriado do ano para planejar ações de turismo
         proximos_feriados = [f for f in feriados if f["date"] > data_hoje]
         if proximos_feriados:
             proximo = proximos_feriados[0]
@@ -313,7 +312,7 @@ if os.path.exists(caminho_arquivo):
                     return "Não informado"
 
                 nome_fantasia = achar_valor(["nome fantasia", "razão social", "nome"])
-                certificado = achar_valor/ achar_valor(["numero do certificado", "certificado", "cadastur"]) if False else achar_valor(["numero do certificado", "certificado", "cadastur"])
+                certificado = achar_valor(["numero do certificado", "certificado", "cadastur"])
                 responsavel = achar_valor(["nome do responsável", "nome do responsavel", "responsável", "contato"])
                 telefone = achar_valor(["telefones", "telefone", "celular", "whatsapp", "fone"])
                 municipio = achar_valor(["município", "municipio", "cidade"])
