@@ -6,7 +6,7 @@ import re
 # Configuração da página para aproveitar bem o espaço
 st.set_page_config(page_title="LocMee Data Processor", layout="wide")
 
-st.title("🔄 LocMee Data Processor (v4.8)")
+st.title("🔄 LocMee Data Processor (v4.10)")
 st.markdown("Consulta rápida, organizada e integrada ao repositório para o trade turístico.")
 
 # Autenticação segura via Secrets do Streamlit
@@ -250,24 +250,25 @@ if os.path.exists(caminho_arquivo):
 
     st.markdown("---")
     
-    st.write("📋 **Pré-visualização (5 primeiras linhas):**")
-    st.dataframe(df.head(5), use_container_width=True)
-    if len(df) > 5:
-        st.caption("Mostrando as primeiras 5 linhas na prévia.")
-
-    st.markdown("---")
-    
     st.subheader("🔍 Consulta e Ficha de Cadastro")
-    st.markdown("Busque por parte do **Nome** ou do **Número do Certificado** para gerar o cartão de contato rápido.")
+    st.markdown("Busque pelo nome, termo ou e-mail (ex: Aviva, Playcenter).")
     
-    termo_busca = st.text_input("Digite o Número do Certificado, Nome Fantasia ou Responsável:")
+    termo_busca = st.text_input("Digite o termo, Nome Fantasia, Responsável ou E-mail:")
 
     if termo_busca:
         with st.spinner("⏳ Buscando registro na base de dados..."):
-            df_busca = df[df.astype(str).apply(lambda row: row.str.contains(termo_busca, case=False, na=False)).any(axis=1)]
+            termo_limpo = termo_busca.strip()
+            # Busca por palavra inteira (\b), permitindo encontrar o termo dentro de e-mails ou textos longos sem pegar falsos positivos (ex: Manu vs Manutenção)
+            padrao_busca = rf'\b{re.escape(termo_limpo)}\b'
+            
+            mask_busca = df.astype(str).apply(
+                lambda row: row.str.contains(padrao_busca, case=False, na=False, regex=True)
+            ).any(axis=1)
+            
+            df_busca = df[mask_busca]
         
         if len(df_busca) > 0:
-            st.info(f"Encontrado(s) {len(df_busca)} registro(s).")
+            st.info(f"Encontrado(s) {len(df_busca)} registro(s) correspondente(s).")
             st.caption("💡 *Dica no celular: Toque na caixa abaixo para selecionar e copiar os dados para o WhatsApp.*")
             
             for idx, row in df_busca.head(10).iterrows():
@@ -314,7 +315,7 @@ if os.path.exists(caminho_arquivo):
                     )
                     st.markdown("---")
         else:
-            st.warning("Nenhum cadastro encontrado com este termo.")
+            st.warning("⚠️ Registro não localizado. Nenhum cadastro corresponde ao termo digitado.")
 
 else:
     st.error(f"⚠️ O arquivo correspondente (`{caminho_arquivo}`) ainda não foi encontrado na raiz do repositório.")
