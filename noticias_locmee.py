@@ -95,9 +95,18 @@ def buscar_e_transformar_noticias():
     # Exibição das 3 matérias formatadas para o blog e análise comercial
     for i, item in enumerate(st.session_state["noticias_selecionadas"], 1):
         with st.container():
-            st.markdown(f"### 📰 Matéria #{i}: [{item['categoria']}] {item['titulo']}")
+            st.markdown(f"### 📰 Matéria #{i}: [{item['categoria']}]")
             
-            # Caixa 1: Texto principal robusto (leitura de ~1.5 min) pronto para o blog
+            # Título com opção de toque/cópia facilitada
+            st.markdown(f"**Título da Matéria:**")
+            st.text_area(
+                label=f"Título - {i}",
+                value=item['titulo'],
+                height=70,
+                key=f"titulo_box_{i}"
+            )
+            
+            # Texto principal robusto pronto para o blog
             st.markdown("**📄 Texto Base Completo para o Blog (Leitura de 1-2 min):**")
             st.text_area(
                 label=f"Texto base - {item['titulo']}",
@@ -106,7 +115,7 @@ def buscar_e_transformar_noticias():
                 key=f"texto_base_{i}"
             )
             
-            # Caixa 2: Análise exclusiva LocNews adaptada ao mercado brasileiro
+            # Análise exclusiva LocNews adaptada ao mercado brasileiro
             st.markdown("**💡 Análise LocNews (Visão Estratégica B2B):**")
             st.info(item['analise'])
             
