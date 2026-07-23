@@ -2,11 +2,13 @@ import streamlit as st
 import pandas as pd
 import os
 import re
+import requests
+from datetime import datetime
 
 # Configuração da página para aproveitar bem o espaço
 st.set_page_config(page_title="LocMee Data Processor", layout="wide")
 
-st.title("🔄 LocMee Data Processor (v4.10)")
+st.title("🔄 LocMee Data Processor (v4.11)")
 st.markdown("Consulta rápida, organizada e integrada ao repositório para o trade turístico.")
 
 # Autenticação segura via Secrets do Streamlit
@@ -43,6 +45,18 @@ def check_password():
 
 if not check_password():
     st.stop()
+
+# --- FUNÇÃO PARA BUSCAR FERIADOS NACIONAIS (BrasilAPI) ---
+@st.cache_data(ttl=86400) # Cache de 24 horas para não consultar a API a cada clique
+def obter_feriados_ano(ano):
+    try:
+        url = f"https://brasilapi.com.br/api/feriados/v1/{ano}"
+        response = requests.get(url, timeout=5)
+        if response.status_code == 200:
+            return response.json()
+    except Exception:
+        pass
+    return []
 
 # Função para formatar o nome do responsável: retira preposições e mantém apenas os 2 primeiros nomes
 def formatar_nome_responsavel(texto):
@@ -183,6 +197,25 @@ if os.path.exists(caminho_arquivo):
         else:
             st.info("Coluna de Município não localizada na planilha.")
 
+    # --- ALERTA DE FERIADOS LOGO APÓS O LOGIN E FILTROS ---
+    ano_atual = datetime.now().year
+    data_hoje = datetime.now().strftime("%Y-%m-%d")
+    feriados = obter_feriados_ano(ano_atual)
+
+    feriado_hoje = next((f for f in feriados if f["date"] == data_hoje), None)
+
+    if feriado_hoje:
+        nome_feriado = feriado_hoje["name"]
+        local_aviso = f"Estado: {uf_selecionada}" if uf_selecionada != "Todos" else "Nacional"
+        st.success(🎯 **Alerta de Feriado Hoje!** O feriado **{nome_feriado}** é comemorado nesta data ({local_aviso}).)
+    else:
+        # Opcional: Mostrar o próximo feriado do ano para planejar ações de turismo
+        proximos_feriados = [f for f in feriados if f["date"] > data_hoje]
+        if proximos_feriados:
+            proximo = proximos_feriados[0]
+            data_formatada = datetime.strptime(proximo["date"], "%Y-%m-%d").strftime("%d/%m/%Y")
+            st.info(f"📅 **Próximo Feriado Nacional:** {proximo['name']} em **{data_formatada}**.")
+
     # Aplicação dos filtros geográficos na base bruta
     df_filtrado_geo = df_raw.copy()
     if col_uf and uf_selecionada != "Todos":
@@ -258,7 +291,6 @@ if os.path.exists(caminho_arquivo):
     if termo_busca:
         with st.spinner("⏳ Buscando registro na base de dados..."):
             termo_limpo = termo_busca.strip()
-            # Busca por palavra inteira (\b), permitindo encontrar o termo dentro de e-mails ou textos longos sem pegar falsos positivos (ex: Manu vs Manutenção)
             padrao_busca = rf'\b{re.escape(termo_limpo)}\b'
             
             mask_busca = df.astype(str).apply(
@@ -281,7 +313,7 @@ if os.path.exists(caminho_arquivo):
                     return "Não informado"
 
                 nome_fantasia = achar_valor(["nome fantasia", "razão social", "nome"])
-                certificado = achar_valor(["numero do certificado", "certificado", "cadastur"])
+                certificado = achar_valor/ achar_valor(["numero do certificado", "certificado", "cadastur"]) if False else achar_valor(["numero do certificado", "certificado", "cadastur"])
                 responsavel = achar_valor(["nome do responsável", "nome do responsavel", "responsável", "contato"])
                 telefone = achar_valor(["telefones", "telefone", "celular", "whatsapp", "fone"])
                 municipio = achar_valor(["município", "municipio", "cidade"])
