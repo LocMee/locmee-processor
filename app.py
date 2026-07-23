@@ -8,8 +8,15 @@ from datetime import datetime
 # Configuração da página para aproveitar bem o espaço
 st.set_page_config(page_title="LocMee Data Processor", layout="wide")
 
-st.title("🔄 LocMee Data Processor (v4.15)")
-st.markdown("Consulta rápida, organizada e integrada ao repositório para o trade turístico.")
+# --- OCULTAR ELEMENTOS PADRÃO DO STREAMLIT (MENU E FOOTER) PARA UX DE APP ---
+hide_streamlit_style = """
+    <style>
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    </style>
+"""
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
 # Autenticação segura via Secrets do Streamlit
 if "SENHA_ACESSO" in st.secrets:
@@ -45,6 +52,14 @@ def check_password():
 
 if not check_password():
     st.stop()
+
+# --- CABEÇALHO PERSONALIZADO COM CAIXINHA ESTILIZADA (UX MELHORADA) ---
+st.markdown("""
+    <div style="padding: 15px 20px; background-color: #f8f9fa; border-radius: 12px; border: 1px solid #e9ecef; margin-bottom: 20px;">
+        <h3 style="margin: 0; color: #1e293b; font-size: 20px;">📊 LocMee Data Processor</h3>
+        <p style="margin: 5px 0 0 0; color: #64748b; font-size: 13px;">Consulta rápida e integrada ao repositório (v4.16)</p>
+    </div>
+""", unsafe_allow_html=True)
 
 # --- FUNÇÃO PARA OBTER FERIADOS NACIONAIS E ESTADUAIS DE TODAS AS UFS ---
 @st.cache_data(ttl=86400)
@@ -229,7 +244,6 @@ if os.path.exists(caminho_arquivo):
             cols_previa.append(c)
             break
     
-    # Se não achar exatamente com esses nomes, pega as duas primeiras colunas disponíveis para não quebrar
     if len(cols_previa) < 2 and len(df_raw.columns) >= 2:
         cols_previa = list(df_raw.columns[:2])
 
