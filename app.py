@@ -6,7 +6,7 @@ import re
 # Configuração da página para aproveitar bem o espaço
 st.set_page_config(page_title="LocMee Data Processor", layout="wide")
 
-st.title("🔄 LocMee Data Processor (v4.3)")
+st.title("🔄 LocMee Data Processor (v4.4)")
 st.markdown("Consulta rápida, organizada e integrada ao repositório para o trade turístico.")
 
 # Autenticação segura via Secrets do Streamlit
@@ -25,7 +25,7 @@ def check_password():
     def password_entered():
         if st.session_state["password_input"] == senha_correta:
             st.session_state["password_correct"] = True
-            st.session_state["password_input"] = ""  # limpa o campo
+            st.session_state["password_input"] = ""
         else:
             st.session_state["password_correct"] = False
 
@@ -44,9 +44,20 @@ def check_password():
 if not check_password():
     st.stop()
 
+# Função para remover preposições e conjunções dos nomes para o marketing
+def limpar_preposicoes_nome(texto):
+    if pd.isna(texto) or not isinstance(texto, str):
+        return texto
+    
+    # Palavras a desconsiderar (isoladas por espaços)
+    palavras_ignorar = {"de", "do", "da", "dos", "das", "e", "e."}
+    
+    tokens = texto.split()
+    tokens_filtrados = [t for t in tokens if t.lower() not in palavras_ignorar]
+    return " ".join(tokens_filtrados)
+
 # Função para higienizar e filtrar a base focando na coluna E-mail Comercial
 def higienizar_base(df):
-    # Encontrar a coluna de e-mail comercial de forma inteligente
     col_alvo = None
     for col in df.columns:
         col_limpa = col.strip().lower()
@@ -55,7 +66,6 @@ def higienizar_base(df):
                 col_alvo = col
                 break
     
-    # Se não achou com "comercial", pega a primeira coluna que tiver email
     if not col_alvo:
         for col in df.columns:
             if "e-mail" in col.lower() or "email" in col.lower():
@@ -65,7 +75,6 @@ def higienizar_base(df):
     if col_alvo:
         df[col_alvo] = df[col_alvo].astype(str)
         
-        # Isolar estritamente apenas o primeiro e-mail válido se houver múltiplos
         def extrair_primeiro_email(texto):
             if pd.isna(texto) or texto.lower() == 'nan':
                 return ""
@@ -84,7 +93,6 @@ def higienizar_base(df):
         ]
         
         padrao_proibido = '|'.join(termos_proibidos)
-        
         mask_proibido = df[col_alvo].str.contains(padrao_proibido, case=False, na=False)
         
         for col in df.columns:
@@ -93,9 +101,13 @@ def higienizar_base(df):
                 
         df = df[~mask_proibido].reset_index(drop=True)
 
+    # Aplica a limpeza de preposições nas colunas de nome/responsável se existirem
+    for col in df.columns:
+        if any(t in col.lower() for t in ["nome", "fantasia", "razao", "responsável"]):
+            df[col] = df[col].apply(limpar_preposicoes_nome)
+
     return df
 
-# Função para reorganizar as colunas principais no topo
 def reorganizar_colunas(df, tipo_planilha):
     cols = list(df.columns)
     
@@ -110,10 +122,9 @@ def reorganizar_colunas(df, tipo_planilha):
     else:
         alvos = ["Atividade Turística", "Nome Fantasia"]
 
-    novas_cols = [c for c in alvos if c in cols] + [c for c in cols if c not in alvos]
+    novas_cols = [c for c in alvos if c in cols] + [c for c in cols if c not in cols]
     return df[novas_cols]
 
-# Mapeamento das opções do menu
 opcoes_planilhas = {
     "Agências de Turismo": "agencias.xlsx",
     "Guias de Turismo": "guias.xlsx",
@@ -125,7 +136,6 @@ opcoes_planilhas = {
 tipo_atual = st.selectbox("Selecione a base de dados que deseja consultar:", list(opcoes_planilhas.keys()))
 caminho_arquivo = opcoes_planilhas[tipo_atual]
 
-# Carregamento automático e higienização
 if os.path.exists(caminho_arquivo):
     with st.spinner(f"🔄 Carregando e higienizando base de {tipo_atual}..."):
         df = pd.read_excel(caminho_arquivo)
@@ -133,6 +143,17 @@ if os.path.exists(caminho_arquivo):
         df = reorganizar_colunas(df, tipo_atual)
 
     st.success(f"Base carregada e limpa com sucesso: **{tipo_atual}** ({len(df)} registros válidos)")
+    
+    # BOTÃO DE DOWNLOAD JÁ NO TOPO PARA FACILITAR NO CELULAR
+    csv = df.to_csv(index=False).encode('utf-8')
+    st.download_button(
+        label=f"📥 Baixar base completa de {tipo_atual} higienizada (.csv)",
+        data=csv,
+        file_name=f"planilha_{tipo_atual.lower().replace(' ', '_')}_marketing_enxuta.csv",
+        mime="text/csv"
+    )
+    
+    st.markdown("---")
     
     st.write("📋 **Pré-visualização (5 primeiras linhas):**")
     st.dataframe(df.head(5), use_container_width=True)
@@ -196,13 +217,5 @@ if os.path.exists(caminho_arquivo):
         else:
             st.warning("Nenhum cadastro encontrado com este termo.")
 
-    st.markdown("---")
-    csv = df.to_csv(index=False).encode('utf-8')
-    st.download_button(
-        label=f"📥 Baixar base completa de {tipo_atual} higienizada (.csv)",
-        data=csv,
-        file_name=f"planilha_{tipo_atual.lower().replace(' ', '_')}_marketing_enxuta.csv",
-        mime="text/csv"
-    )
 else:
     st.error(f"⚠️ O arquivo correspondente (`{caminho_arquivo}`) ainda não foi encontrado na raiz do repositório.")
