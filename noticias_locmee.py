@@ -84,7 +84,12 @@ def buscar_e_transformar_noticias():
         }
     ]
 
-    # Botão para sortear/atualizar e trazer exatamente 3 matérias completas
+    # Força a atualização da session se o formato antigo estiver guardado na memória
+    if "noticias_selecionadas" in st.session_state:
+        # Verifica se o primeiro item carregado tem a chave de imagem; se não tiver, reseta
+        if not all("imagem_sugestao" in item for item in st.session_state["noticias_selecionadas"]):
+            st.session_state["noticias_selecionadas"] = random.sample(banco_noticias, 3)
+
     if "noticias_selecionadas" not in st.session_state:
         st.session_state["noticias_selecionadas"] = random.sample(banco_noticias, 3)
 
@@ -110,8 +115,8 @@ def buscar_e_transformar_noticias():
                 key=f"titulo_box_{i}"
             )
             
-            # Sugestão de Imagem
-            st.info(item['imagem_sugestao'])
+            # Sugestão de Imagem com fallback seguro
+            st.info(item.get('imagem_sugestao', '📸 Sugestão de Imagem: Buscar foto corporativa relacionada ao tema no banco de imagens.'))
             
             # Caixa de Texto Base Completo para o Blog
             st.markdown("**📄 Texto Base Completo para o Blog (Leitura de 1-2 min):**")
