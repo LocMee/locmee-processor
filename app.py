@@ -5,61 +5,60 @@ import re
 import requests
 from datetime import datetime
 
-# --- CONFIGURAÇÃO DA PÁGINA (Layout Wide para melhor uso do espaço no mobile) ---
+# --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="LocMee Data Processor", layout="wide")
 
-# --- CSS CUSTOMIZADO PARA MELHORAR A UX NO MOBILE ---
+# --- CSS CUSTOMIZADO PARA LAYOUT MOBILE PERFEITO ---
 st.markdown("""
     <style>
-    /* 1. Ocultar elementos padrão do Streamlit (Menu e Footer) */
+    /* 1. Ocultar elementos padrão do Streamlit */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
 
-    /* 2. Ajustar o container principal para remover a margem superior padrão */
+    /* 2. Remover margens excessivas do topo para a caixa colar em cima */
     .main .block-container {
-        padding-top: 1rem !important; /* Reduz drasticamente o espaço em branco no topo */
+        padding-top: 0.5rem !important;
         padding-bottom: 2rem !important;
-        padding-left: 1rem !important;
-        padding-right: 1rem !important;
+        padding-left: 0.8rem !important;
+        padding-right: 0.8rem !important;
     }
 
-    /* 3. Estilo da Caixa de Título Principal (Centralizada e Ajustada) */
+    /* 3. Caixa de Título Centralizada e Ocupando Toda a Largura */
     .title-box {
         background-color: #f8f9fa;
-        border-radius: 12px;
-        padding: 20px 15px;
-        margin-bottom: 20px;
+        border-radius: 14px;
+        padding: 18px 10px;
+        margin-bottom: 15px;
         text-align: center;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-        border: 1px solid #e9ecef;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+        border: 1px solid #e2e8f0;
+        width: 100%;
     }
 
-    /* 4. Título Maior e Negrito (Ocupando mais área) */
+    /* 4. Fonte Maior e Ajustada para o Título */
     .title-box h3 {
-        margin: 0 0 5px 0;
+        margin: 0 0 4px 0;
         color: #1e293b;
-        font-size: 24px !important; /* Fonte ligeiramente maior */
+        font-size: 22px !important;
         font-weight: 700 !important;
     }
 
-    /* 5. Subtítulo com fonte ajustada */
+    /* 5. Subtítulo proporcional */
     .title-box p {
         margin: 0;
         color: #64748b;
-        font-size: 14px !important;
+        font-size: 13px !important;
     }
 
-    /* 6. Ajustar o espaçamento de todos os elementos (reduzir paddings verticais) */
-    .stSelectbox, .stTextInput, .stDataFrame, .stMarkdown {
-        margin-bottom: 10px !important;
+    /* 6. Espaçamentos gerais otimizados para toque no celular */
+    .stSelectbox, .stTextInput, .stMarkdown {
+        margin-bottom: 8px !important;
     }
     
-    /* 7. Ajustar o tamanho da fonte do selectbox para facilitar o toque */
     div[data-baseweb="select"] > div {
         font-size: 16px !important;
     }
-    
     </style>
 """, unsafe_allow_html=True)
 
@@ -67,7 +66,7 @@ st.markdown("""
 if "SENHA_ACESSO" in st.secrets:
     senha_correta = st.secrets["SENHA_ACESSO"]
 else:
-    senha_correta = "locmee2026"  # fallback de segurança
+    senha_correta = "locmee2026"
 
 def check_password():
     if "password_correct" not in st.session_state:
@@ -76,7 +75,6 @@ def check_password():
     if st.session_state["password_correct"]:
         return True
 
-    # Centralizar o input da senha para ficar mais elegante
     st.markdown("<br><br>", unsafe_allow_html=True)
     col_pwd1, col_pwd2, col_pwd3 = st.columns([1,3,1])
     with col_pwd2:
@@ -87,7 +85,6 @@ def check_password():
             on_change=password_entered,
             key="password_input"
         )
-        
         if "password_input" in st.session_state and not st.session_state["password_correct"] and st.session_state["password_input"] != "":
             st.error("Senha incorreta.")
             
@@ -103,45 +100,28 @@ def password_entered():
 if not check_password():
     st.stop()
 
-# --- CABEÇALHO CUSTOMIZADO v4.17 (Caixa preenchendo a largura e fonte aumentada) ---
+# --- CABEÇALHO CUSTOMIZADO v4.18 (Centralizado e no Topo) ---
 st.markdown("""
     <div class="title-box">
         <h3>📊 LocMee Data Processor</h3>
-        <p>Consulta rápida e integrada ao repositório (v4.17)</p>
+        <p>Consulta rápida e integrada ao repositório (v4.18)</p>
     </div>
 """, unsafe_allow_html=True)
 
 # --- FUNÇÃO PARA OBTER FERIADOS ---
 @st.cache_data(ttl=86400)
 def obter_calendario_nacional(ano, uf_filtro):
-    # ... (A mesma função da versão anterior, sem alterações) ...
     feriados_lista = []
     try:
         url = f"https://brasilapi.com.br/api/feriados/v1/{ano}"
         response = requests.get(url, timeout=5)
         if response.status_code == 200:
             for f in response.json():
-                feriados_lista.append({
-                    "date": f["date"],
-                    "name": f["name"],
-                    "tipo": "Nacional"
-                })
+                feriados_lista.append({"date": f["date"], "name": f["name"], "tipo": "Nacional"})
     except Exception: pass
-    
-    # Feriados estaduais (simplificado para brevidade)
-    feriados_estaduais_brasil = {
-        "BA": [{"date": f"{ano}-07-02", "name": "Independência da Bahia"}],
-        # ... adicione outros se necessário ...
-    }
-    
-    # Adiciona feriados estaduais conforme filtro
-    if uf_filtro != "Todos" and uf_filtro in feriados_estaduais_brasil:
-        for fe in feriados_estaduais_brasil[uf_filtro]:
-             feriados_lista.append({"date": fe["date"], "name": f"{fe['name']} ({uf_filtro})", "tipo": "Estadual"})
-             
     return sorted(feriados_lista, key=lambda x: x["date"])
 
-# Função para formatar o nome do responsável: retira preposições e mantém apenas os 2 primeiros nomes
+# Função para formatar o nome do responsável
 def formatar_nome_responsavel(texto):
     if pd.isna(texto) or not isinstance(texto, str): return texto
     palavras_ignorar = {"de", "do", "da", "dos", "das", "e", "e."}
@@ -174,7 +154,6 @@ def higienizar_base(df):
                 mask_proibido = mask_proibido | df[col].astype(str).str.contains(padrao_proibido, case=False, na=False)
         df = df[~mask_proibido].reset_index(drop=True)
 
-    # Aplica a formatação específica na coluna de responsável
     for col in df.columns:
         c_l = col.strip().lower()
         if c_l in ["nome do responsável", "nome do responsavel"] or "responsável" in c_l or "responsavel" in c_l:
@@ -183,12 +162,7 @@ def higienizar_base(df):
 
 def reorganizar_colunas(df, tipo_planilha):
     cols = list(df.columns)
-    if tipo_planilha in ["Agências de Turismo", "Meio de Hospedagem", "Locadora de Veículos", "Parques e Outros"]:
-        alvos = ["Atividade Turística", "Nome Fantasia", "Nome do Responsável", "E-mail Comercial", "Município", "UF"]
-    elif tipo_planilha == "Guias de Turismo":
-        alvos = ["Atividade Turística", "Nome do Responsável", "E-mail Comercial", "Município", "UF"]
-    else:
-        alvos = ["Atividade Turística", "Nome Fantasia", "Nome do Responsável", "E-mail Comercial", "Município", "UF"]
+    alvos = ["Atividade Turística", "Nome Fantasia", "Nome do Responsável", "E-mail Comercial", "Município", "UF"]
     novas_cols = [c for c in alvos if c in cols] + [c for c in cols if c not in alvos]
     return df[novas_cols]
 
@@ -269,12 +243,103 @@ if os.path.exists(caminho_arquivo):
 
     st.success(f"Base carregada e limpa: **{tipo_atual}** ({len(df)} registros válidos)")
     
-    # OPÇÕES DE DOWNLOAD
+    # --- OPÇÕES DE DOWNLOAD CORRIGIDAS ---
     st.markdown("#### 📥 Opções de Download")
     col_dl1, col_dl2 = st.columns(2)
     with col_dl1:
-        st.download_button(label=f"📥 Baixar Base Completa (.csv)", data=df.to_csv(index=False).encode('utf-8'), file_name=f"planilha_{tipo_atual.lower().replace(' ', '_')}_completa.csv", mime="text/csv")
+        st.download_button(
+            label=f"📥 Baixar Base Completa (.csv)",
+            data=df.to_csv(index=False).encode('utf-8'),
+            file_name=f"planilha_{tipo_atual.lower().replace(' ', '_')}_completa.csv",
+            mime="text/csv"
+        )
     with col_dl2:
         col_nome_mkt = col_email_mkt = None
         for c in df.columns:
-            c_l
+            c_l = c.strip().lower()
+            if c_l in ["nome do responsável", "nome do responsavel"] or "responsável" in c_l or "responsavel" in c_l:
+                col_nome_mkt = c
+                break
+        if not col_nome_mkt:
+            for c in df.columns:
+                if "nome" in c.lower() or "fantasia" in c.lower():
+                    col_nome_mkt = c
+                    break
+
+        for c in df.columns:
+            c_l = c.strip().lower()
+            if c_l in ["e-mail comercial", "email comercial"] or ("e-mail" in c_l and "comercial" in c_l):
+                col_email_mkt = c
+                break
+
+        if col_nome_mkt and col_email_mkt:
+            df_mkt = df[[col_nome_mkt, col_email_mkt]].dropna(subset=[col_email_mkt])
+            df_mkt = df_mkt[df_mkt[col_email_mkt].astype(str).str.strip() != ""]
+            st.download_button(
+                label=f"🎯 Baixar Enxuta Marketing",
+                data=df_mkt.to_csv(index=False).encode('utf-8'),
+                file_name=f"marketing_{tipo_atual.lower().replace(' ', '_')}_enxuta.csv",
+                mime="text/csv",
+                type="primary"
+            )
+        else:
+            st.warning("Colunas de marketing não localizadas.")
+
+    st.markdown("---")
+    
+    # --- BUSCA E CONSULTA DE REGISTROS ---
+    st.subheader("🔍 Consulta e Ficha de Cadastro")
+    termo_busca = st.text_input("Digite o termo, Nome Fantasia, Responsável ou E-mail:")
+
+    if termo_busca:
+        with st.spinner("⏳ Buscando registro na base de dados..."):
+            termo_limpo = termo_busca.strip()
+            padrao_busca = rf'\b{re.escape(termo_limpo)}\b'
+            mask_busca = df.astype(str).apply(
+                lambda row: row.str.contains(padrao_busca, case=False, na=False, regex=True)
+            ).any(axis=1)
+            df_busca = df[mask_busca]
+        
+        if len(df_busca) > 0:
+            st.info(f"Encontrado(s) {len(df_busca)} registro(s) correspondente(s).")
+            for idx, row in df_busca.head(10).iterrows():
+                def achar_valor(palavras_chave):
+                    for col in df.columns:
+                        if any(p in col.lower() for p in palavras_chave):
+                            val = row[col]
+                            if pd.notna(val): return str(val)
+                    return "Não informado"
+
+                nome_fantasia = achar_valor(["nome fantasia", "razão social", "nome"])
+                certificado = achar_valor(["numero do certificado", "certificado", "cadastur"])
+                responsavel = achar_valor(["nome do responsável", "nome do responsavel", "responsável", "contato"])
+                telefone = achar_valor(["telefones", "telefone", "celular", "whatsapp", "fone"])
+                municipio = achar_valor(["município", "municipio", "cidade"])
+                uf = achar_valor(["uf", "estado", "sigla uf"])
+                
+                email_comercial = "Não informado"
+                for col in df.columns:
+                    c_l = col.strip().lower()
+                    if c_l in ["e-mail comercial", "email comercial"] or "e-mail" in c_l or "email" in c_l:
+                        val = row[col]
+                        if pd.notna(val) and str(val).strip() != "":
+                            email_comercial = str(val)
+                            break
+
+                ficha_texto = (
+                    f"🏢 Nome: {nome_fantasia}\n"
+                    f"📄 Inscrição Cadastur: {certificado}\n"
+                    f"👤 Responsável: {responsavel}\n"
+                    f"📍 Local: {municipio} - {uf}\n"
+                    f"📞 Telefone: {telefone}\n"
+                    f"📧 E-mail: {email_comercial}"
+                )
+
+                with st.container():
+                    st.markdown(f"**Registro #{idx + 1}**")
+                    st.text_area(label=f"Ficha - {nome_fantasia}", value=ficha_texto, height=145, key=f"ficha_{idx}")
+                    st.markdown("---")
+        else:
+            st.warning("⚠️ Registro não localizado. Nenhum cadastro corresponde ao termo digitado.")
+else:
+    st.error(f"⚠️ O arquivo correspondente (`{caminho_arquivo}`) ainda não foi encontrado na raiz do repositório.")
