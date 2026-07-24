@@ -223,6 +223,23 @@ with aba_consulta:
                 mun_selecionado = st.selectbox("Filtrar por Município:", lista_muns, key="filtro_mun")
             else: st.info("Coluna Município não localizada.")
 
+        # --- NOVO FILTRO DE UHs ESPECÍFICO PARA MEIOS DE HOSPEDAGEM ---
+        faixa_uh = "Todos"
+        if tipo_atual == "Meio de Hospedagem":
+            st.markdown("---")
+            faixa_uh = st.selectbox(
+                "Filtrar por Número de UHs (Unidades Habitacionais):",
+                [
+                    "Todos",
+                    "Até 20 UHs",
+                    "De 21 a 50 UHs",
+                    "De 51 a 100 UHs",
+                    "De 101 a 200 UHs",
+                    "Acima de 201 UHs"
+                ],
+                key="hosp_faixa_uh"
+            )
+
         # --- ALERTA DE FERIADOS ---
         ano_atual = datetime.now().year
         data_hoje = datetime.now().strftime("%Y-%m-%d")
@@ -240,6 +257,30 @@ with aba_consulta:
         df_filtrado_geo = df_raw.copy()
         if col_uf and uf_selecionada != "Todos": df_filtrado_geo = df_filtrado_geo[df_filtrado_geo[col_uf].astype(str) == uf_selecionada]
         if col_mun and mun_selecionado != "Todos": df_filtrado_geo = df_filtrado_geo[df_filtrado_geo[col_mun].astype(str) == mun_selecionado]
+
+        # Aplicação do filtro de UHs caso seja a aba de Hospedagem
+        if tipo_atual == "Meio de Hospedagem" and faixa_uh != "Todos":
+            col_uh_nome = None
+            for c in df_filtrado_geo.columns:
+                if c.strip().lower() in ["uhs", "uh", "quartos", "unidades habitacionais"]:
+                    col_uh_nome = c
+                    break
+            
+            if col_uh_nome:
+                # Converte para numérico de forma segura para aplicar as faixas
+                df_filtrado_geo[col_uh_nome] = pd.to_numeric(df_filtrado_geo[col_uh_nome], errors='coerce')
+                if faixa_uh == "Até 20 UHs":
+                    df_filtrado_geo = df_filtrado_geo[df_filtrado_geo[col_uh_nome] <= 20]
+                elif faixa_uh == "De 21 a 50 UHs":
+                    df_filtrado_geo = df_filtrado_geo[(df_filtrado_geo[col_uh_nome] >= 21) & (df_filtrado_geo[col_uh_nome] <= 50)]
+                elif faixa_uh == "De 51 a 100 UHs":
+                    df_filtrado_geo = df_filtrado_geo[(df_filtrado_geo[col_uh_nome] >= 51) & (df_filtrado_geo[col_uh_nome] <= 100)]
+                elif faixa_uh == "De 101 a 200 UHs":
+                    df_filtrado_geo = df_filtrado_geo[(df_filtrado_geo[col_uh_nome] >= 101) & (df_filtrado_geo[col_uh_nome] <= 200)]
+                elif faixa_uh == "Acima de 201 UHs":
+                    df_filtrado_geo = df_filtrado_geo[df_filtrado_geo[col_uh_nome] >= 201]
+            else:
+                st.warning("⚠️ Coluna de UHs / Quartos não encontrada nesta base para aplicar o filtro numérico.")
 
         with st.spinner(f"🔄 Higienizando {len(df_filtrado_geo)} registros..."):
             df = higienizar_base(df_filtrado_geo)
@@ -288,6 +329,18 @@ with aba_consulta:
                 )
             else:
                 st.warning("Colunas de marketing não localizadas.")
+
+        # Bloco extra para cópia rápida de e-mails para marketing quando for Hospedagem ou geral
+        if col_email_mkt and len(df) > 0:
+            lista_emails_mkt = "; ".join(df[col_email_mkt].dropna().unique().tolist())
+            if lista_emails_mkt:
+                st.markdown("**📋 E-mails higienizados prontos para copiar e colar na sua campanha:**")
+                st.text_area(
+                    label="E-mails marketing separados por ponto e vírgula",
+                    value=lista_emails_mkt,
+                    height=90,
+                    key="emails_copia_mkt"
+                )
 
         st.markdown("---")
         
