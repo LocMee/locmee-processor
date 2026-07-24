@@ -262,7 +262,8 @@ with aba_consulta:
         if tipo_atual == "Meio de Hospedagem" and faixa_uh != "Todos":
             col_uh_nome = None
             for c in df_filtrado_geo.columns:
-                if c.strip().lower() in ["uhs", "uh", "quartos", "unidades habitacionais"]:
+                c_clean = c.strip().lower()
+                if any(termo in c_clean for termo in ["unidade", "uh", "quarto"]):
                     col_uh_nome = c
                     break
             
