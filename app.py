@@ -3,6 +3,7 @@ import pandas as pd
 import os
 import re
 import requests
+from io import BytesIO
 from datetime import datetime
 import noticias_locmee  # <--- 1. IMPORTANDO O NOVO MÓDULO
 
@@ -101,11 +102,11 @@ def password_entered():
 if not check_password():
     st.stop()
 
-# --- CABEÇALHO CUSTOMIZADO v4.18 (Centralizado e no Topo) ---
+# --- CABEÇALHO CUSTOMIZADO v4.20 (Centralizado e no Topo) ---
 st.markdown("""
     <div class="title-box">
         <h3>📊 LocMee Data Processor</h3>
-        <p>Consulta rápida e integrada ao repositório (v4.18)</p>
+        <p>Consulta rápida e integrada ao repositório (v4.20)</p>
     </div>
 """, unsafe_allow_html=True)
 
@@ -122,13 +123,15 @@ def obter_calendario_nacional(ano, uf_filtro):
     except Exception: pass
     return sorted(feriados_lista, key=lambda x: x["date"])
 
-# Função para formatar o nome do responsável
+# Função para formatar o nome do responsável com iniciais maiúsculas
 def formatar_nome_responsavel(texto):
     if pd.isna(texto) or not isinstance(texto, str): return texto
     palavras_ignorar = {"de", "do", "da", "dos", "das", "e", "e."}
     tokens = texto.split()
     tokens_filtrados = [t for t in tokens if t.lower() not in palavras_ignorar]
-    return " ".join(tokens_filtrados[:2])
+    # Pega até 2 palavras principais e aplica Title Case (Iniciais Maiúsculas)
+    nome_fmt = " ".join(tokens_filtrados[:2])
+    return nome_fmt.title()
 
 # Função para higienizar e filtrar a base
 def higienizar_base(df):
@@ -144,8 +147,8 @@ def higienizar_base(df):
         def extrair_primeiro_email(texto):
             if pd.isna(texto) or texto.lower() == 'nan': return ""
             emails = re.findall(r'[\w\.-]+@[\w\.-]+\.\w+', texto)
-            if emails: return emails[0]
-            return texto
+            if emails: return emails[0].lower() # E-mail sempre minúsculo
+            return texto.lower()
         df[col_alvo] = df[col_alvo].apply(extrair_primeiro_email)
         termos_proibidos = ["contabil", "contabilidade", "escritorio", "escritório", "fiscal", "dp", "rh", "financeiro", "adm", "administracao", "assessor", "assessoria", "terceirizada", "counter"]
         padrao_proibido = '|'.join(termos_proibidos)
@@ -155,10 +158,18 @@ def higienizar_base(df):
                 mask_proibido = mask_proibido | df[col].astype(str).str.contains(padrao_proibido, case=False, na=False)
         df = df[~mask_proibido].reset_index(drop=True)
 
+    # Padroniza colunas de nomes e razão social com Iniciais Maiúsculas (.title())
+    for col in df.columns:
+        c_l = col.strip().lower()
+        if any(termo in c_l for termo in ["nome", "fantasia", "razao"]) and not ("responsável" in c_l or "responsavel" in c_l):
+            df[col] = df[col].apply(lambda x: x.title() if isinstance(x, str) else x)
+
+    # Formata especificamente as colunas de responsáveis
     for col in df.columns:
         c_l = col.strip().lower()
         if c_l in ["nome do responsável", "nome do responsavel"] or "responsável" in c_l or "responsavel" in c_l:
             df[col] = df[col].apply(formatar_nome_responsavel)
+            
     return df
 
 def reorganizar_colunas(df, tipo_planilha):
@@ -166,6 +177,14 @@ def reorganizar_colunas(df, tipo_planilha):
     alvos = ["Atividade Turística", "Nome Fantasia", "Nome do Responsável", "E-mail Comercial", "Município", "UF"]
     novas_cols = [c for c in alvos if c in cols] + [c for c in cols if c not in alvos]
     return df[novas_cols]
+
+# Função auxiliar para converter DataFrame em buffer Excel (.xlsx)
+def converter_para_excel(df):
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Dados')
+    processed_data = output.getvalue()
+    return processed_data
 
 # --- CRIAÇÃO DAS ABAS PRINCIPAIS ---
 aba_consulta, aba_radar = st.tabs(["📊 Consultas de Bases", "🌐 Radar Global LocMee"])
@@ -268,7 +287,6 @@ with aba_consulta:
                     break
             
             if col_uh_nome:
-                # Converte para numérico de forma segura para aplicar as faixas
                 df_filtrado_geo[col_uh_nome] = pd.to_numeric(df_filtrado_geo[col_uh_nome], errors='coerce')
                 if faixa_uh == "Até 20 UHs":
                     df_filtrado_geo = df_filtrado_geo[df_filtrado_geo[col_uh_nome] <= 20]
@@ -289,15 +307,16 @@ with aba_consulta:
 
         st.success(f"Base carregada e limpa: **{tipo_atual}** ({len(df)} registros válidos)")
         
-        # --- OPÇÕES DE DOWNLOAD ---
+        # --- OPÇÕES DE DOWNLOAD EM .XLSX ---
         st.markdown("#### 📥 Opções de Download")
         col_dl1, col_dl2 = st.columns(2)
         with col_dl1:
+            excel_completo = converter_para_excel(df)
             st.download_button(
-                label=f"📥 Baixar Base Completa (.csv)",
-                data=df.to_csv(index=False).encode('utf-8'),
-                file_name=f"planilha_{tipo_atual.lower().replace(' ', '_')}_completa.csv",
-                mime="text/csv"
+                label=f"📥 Baixar Base Completa (.xlsx)",
+                data=excel_completo,
+                file_name=f"planilha_{tipo_atual.lower().replace(' ', '_')}_completa.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
         with col_dl2:
             col_nome_mkt = col_email_mkt = None
@@ -321,17 +340,18 @@ with aba_consulta:
             if col_nome_mkt and col_email_mkt:
                 df_mkt = df[[col_nome_mkt, col_email_mkt]].dropna(subset=[col_email_mkt])
                 df_mkt = df_mkt[df_mkt[col_email_mkt].astype(str).str.strip() != ""]
+                excel_mkt = converter_para_excel(df_mkt)
                 st.download_button(
-                    label=f"🎯 Baixar Enxuta Marketing",
-                    data=df_mkt.to_csv(index=False).encode('utf-8'),
-                    file_name=f"marketing_{tipo_atual.lower().replace(' ', '_')}_enxuta.csv",
-                    mime="text/csv",
+                    label=f"🎯 Baixar Enxuta Marketing (.xlsx)",
+                    data=excel_mkt,
+                    file_name=f"marketing_{tipo_atual.lower().replace(' ', '_')}_enxuta.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     type="primary"
                 )
             else:
                 st.warning("Colunas de marketing não localizadas.")
 
-        # Bloco extra para cópia rápida de e-mails para marketing quando for Hospedagem ou geral
+        # Bloco extra para cópia rápida de e-mails para marketing
         if col_email_mkt and len(df) > 0:
             lista_emails_mkt = "; ".join(df[col_email_mkt].dropna().unique().tolist())
             if lista_emails_mkt:
