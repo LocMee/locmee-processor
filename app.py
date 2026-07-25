@@ -5,18 +5,20 @@ import re
 import requests
 from io import BytesIO
 from datetime import datetime
-import noticias_locmee  # <--- IMPORTANDO O MÓDULO
+import noticias_locmee  # <--- 1. IMPORTANDO O NOVO MÓDULO
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="LocMee Data Processor", layout="wide")
 
-# --- CSS GLOBAL ---
+# --- CSS CUSTOMIZADO PARA LAYOUT MOBILE PERFEITO ---
 st.markdown("""
     <style>
+    /* 1. Ocultar elementos padrão do Streamlit */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
 
+    /* 2. Remover margens excessivas do topo para a caixa colar em cima */
     .main .block-container {
         padding-top: 0.5rem !important;
         padding-bottom: 2rem !important;
@@ -24,6 +26,7 @@ st.markdown("""
         padding-right: 0.8rem !important;
     }
 
+    /* 3. Caixa de Título Centralizada e Ocupando Toda a Largura */
     .title-box {
         background-color: #f8f9fa;
         border-radius: 14px;
@@ -35,6 +38,7 @@ st.markdown("""
         width: 100%;
     }
 
+    /* 4. Fonte Maior e Ajustada para o Título */
     .title-box h3 {
         margin: 0 0 4px 0;
         color: #1e293b;
@@ -42,12 +46,14 @@ st.markdown("""
         font-weight: 700 !important;
     }
 
+    /* 5. Subtítulo proporcional */
     .title-box p {
         margin: 0;
         color: #64748b;
         font-size: 13px !important;
     }
 
+    /* 6. Espaçamentos gerais otimizados para toque no celular */
     .stSelectbox, .stTextInput, .stMarkdown {
         margin-bottom: 8px !important;
     }
@@ -96,11 +102,11 @@ def password_entered():
 if not check_password():
     st.stop()
 
-# --- CABEÇALHO CUSTOMIZADO v4.23 ---
+# --- CABEÇALHO CUSTOMIZADO v4.18 (Centralizado e no Topo) ---
 st.markdown("""
     <div class="title-box">
         <h3>📊 LocMee Data Processor</h3>
-        <p>Consulta rápida e integrada ao repositório (v4.23)</p>
+        <p>Consulta rápida e integrada ao repositório (v4.18)</p>
     </div>
 """, unsafe_allow_html=True)
 
@@ -123,6 +129,7 @@ def formatar_nome_responsavel(texto):
     palavras_ignorar = {"de", "do", "da", "dos", "das", "e", "e."}
     tokens = texto.split()
     tokens_filtrados = [t for t in tokens if t.lower() not in palavras_ignorar]
+    # Pega até 2 palavras principais e aplica Title Case (Iniciais Maiúsculas)
     nome_fmt = " ".join(tokens_filtrados[:2])
     return nome_fmt.title()
 
@@ -140,7 +147,7 @@ def higienizar_base(df):
         def extrair_primeiro_email(texto):
             if pd.isna(texto) or texto.lower() == 'nan': return ""
             emails = re.findall(r'[\w\.-]+@[\w\.-]+\.\w+', texto)
-            if emails: return emails[0].lower()
+            if emails: return emails[0].lower() # E-mail sempre minúsculo
             return texto.lower()
         df[col_alvo] = df[col_alvo].apply(extrair_primeiro_email)
         termos_proibidos = ["contabil", "contabilidade", "escritorio", "escritório", "fiscal", "dp", "rh", "financeiro", "adm", "administracao", "assessor", "assessoria", "terceirizada", "counter"]
@@ -151,11 +158,13 @@ def higienizar_base(df):
                 mask_proibido = mask_proibido | df[col].astype(str).str.contains(padrao_proibido, case=False, na=False)
         df = df[~mask_proibido].reset_index(drop=True)
 
+    # Padroniza colunas de nomes e razão social com Iniciais Maiúsculas (.title())
     for col in df.columns:
         c_l = col.strip().lower()
         if any(termo in c_l for termo in ["nome", "fantasia", "razao"]) and not ("responsável" in c_l or "responsavel" in c_l):
             df[col] = df[col].apply(lambda x: x.title() if isinstance(x, str) else x)
 
+    # Formata especificamente as colunas de responsáveis
     for col in df.columns:
         c_l = col.strip().lower()
         if c_l in ["nome do responsável", "nome do responsavel"] or "responsável" in c_l or "responsavel" in c_l:
@@ -169,6 +178,7 @@ def reorganizar_colunas(df, tipo_planilha):
     novas_cols = [c for c in alvos if c in cols] + [c for c in cols if c not in alvos]
     return df[novas_cols]
 
+# Função auxiliar para converter DataFrame em buffer Excel (.xlsx)
 def converter_para_excel(df):
     output = BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
@@ -195,6 +205,7 @@ with aba_consulta:
         with st.spinner(f"📂 Lendo dados brutos de {tipo_atual}..."):
             df_raw = pd.read_excel(caminho_arquivo)
 
+        # --- PRÉVIA DOS DADOS BRUTOS ---
         st.markdown("#### 📋 Prévia (5 linhas)")
         cols_previa = []
         for c in df_raw.columns:
@@ -206,12 +217,14 @@ with aba_consulta:
         if len(cols_previa) < 2 and len(df_raw.columns) >= 2: cols_previa = list(df_raw.columns[:2])
         st.dataframe(df_raw[cols_previa].head(5), use_container_width=True, height=212)
 
+        # Identificar colunas de Estado e Município
         col_uf = col_mun = None
         for c in df_raw.columns:
             c_l = c.strip().lower()
             if c_l in ["uf", "estado", "sigla uf"]: col_uf = c
             if c_l in ["município", "municipio", "cidade"]: col_mun = c
 
+        # Filtros geográficos prévios
         st.markdown("#### 📍 Filtro Geográfico Prévio")
         col_f1, col_f2 = st.columns(2)
         uf_selecionada = mun_selecionado = "Todos"
@@ -229,6 +242,7 @@ with aba_consulta:
                 mun_selecionado = st.selectbox("Filtrar por Município:", lista_muns, key="filtro_mun")
             else: st.info("Coluna Município não localizada.")
 
+        # --- NOVO FILTRO DE UHs ESPECÍFICO PARA MEIOS DE HOSPEDAGEM ---
         faixa_uh = "Todos"
         if tipo_atual == "Meio de Hospedagem":
             st.markdown("---")
@@ -245,6 +259,7 @@ with aba_consulta:
                 key="hosp_faixa_uh"
             )
 
+        # --- ALERTA DE FERIADOS ---
         ano_atual = datetime.now().year
         data_hoje = datetime.now().strftime("%Y-%m-%d")
         calendario = obter_calendario_nacional(ano_atual, uf_selecionada)
@@ -257,10 +272,12 @@ with aba_consulta:
                 data_formatada = datetime.strptime(proximo["date"], "%Y-%m-%d").strftime("%d/%m/%Y")
                 st.info(f"📅 **Próximo Feriado ({proximo['tipo']}):** **{proximo['name']}** em **{data_formatada}**.")
 
+        # Aplicação dos filtros geográficos
         df_filtrado_geo = df_raw.copy()
         if col_uf and uf_selecionada != "Todos": df_filtrado_geo = df_filtrado_geo[df_filtrado_geo[col_uf].astype(str) == uf_selecionada]
         if col_mun and mun_selecionado != "Todos": df_filtrado_geo = df_filtrado_geo[df_filtrado_geo[col_mun].astype(str) == mun_selecionado]
 
+        # Aplicação do filtro de UHs caso seja a aba de Hospedagem
         if tipo_atual == "Meio de Hospedagem" and faixa_uh != "Todos":
             col_uh_nome = None
             for c in df_filtrado_geo.columns:
@@ -290,6 +307,7 @@ with aba_consulta:
 
         st.success(f"Base carregada e limpa: **{tipo_atual}** ({len(df)} registros válidos)")
         
+        # --- OPÇÕES DE DOWNLOAD EM .XLSX ---
         st.markdown("#### 📥 Opções de Download")
         col_dl1, col_dl2 = st.columns(2)
         with col_dl1:
@@ -333,6 +351,7 @@ with aba_consulta:
             else:
                 st.warning("Colunas de marketing não localizadas.")
 
+        # Bloco extra para cópia rápida de e-mails para marketing
         if col_email_mkt and len(df) > 0:
             lista_emails_mkt = "; ".join(df[col_email_mkt].dropna().unique().tolist())
             if lista_emails_mkt:
@@ -346,6 +365,7 @@ with aba_consulta:
 
         st.markdown("---")
         
+        # --- BUSCA E CONSULTA DE REGISTROS ---
         st.subheader("🔍 Consulta e Ficha de Cadastro")
         termo_busca = st.text_input("Digite o termo, Nome Fantasia, Responsável ou E-mail:")
 
@@ -403,5 +423,5 @@ with aba_consulta:
         st.error(f"⚠️ O arquivo correspondente (`{caminho_arquivo}`) ainda não foi encontrado na raiz do repositório.")
 
 with aba_radar:
-    with st.spinner("🌐 Varrendo e capturando matérias do Radar Global..."):
-        noticias_locmee.buscar_e_transformar_noticias()
+    # --- CHAMADA DO MÓDULO DE RADAR GLOBAL ---
+    noticias_locmee.buscar_e_transformar_noticias()
