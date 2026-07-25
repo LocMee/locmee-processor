@@ -10,7 +10,7 @@ import noticias_locmee  # <--- 1. IMPORTANDO O NOVO MÓDULO
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="LocMee Data Processor", layout="wide")
 
-# --- CSS CUSTOMIZADO PARA LAYOUT MOBILE PERFEITO ---
+# --- CSS CUSTOMIZADO PARA LAYOUT MOBILE PERFEITO E ANIMAÇÃO DE RADAR ---
 st.markdown("""
     <style>
     /* 1. Ocultar elementos padrão do Streamlit */
@@ -53,7 +53,18 @@ st.markdown("""
         font-size: 13px !important;
     }
 
-    /* 6. Espaçamentos gerais otimizados para toque no celular */
+    /* 6. Animação de Giro do Radar */
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    .radar-icon {
+        display: inline-block;
+        animation: spin 2s linear infinite;
+        font-size: 32px;
+    }
+
+    /* 7. Espaçamentos gerais otimizados para toque no celular */
     .stSelectbox, .stTextInput, .stMarkdown {
         margin-bottom: 8px !important;
     }
@@ -102,11 +113,11 @@ def password_entered():
 if not check_password():
     st.stop()
 
-# --- CABEÇALHO CUSTOMIZADO v4.20 (Centralizado e no Topo) ---
+# --- CABEÇALHO CUSTOMIZADO v4.21 (Centralizado e no Topo) ---
 st.markdown("""
     <div class="title-box">
         <h3>📊 LocMee Data Processor</h3>
-        <p>Consulta rápida e integrada ao repositório (v4.20)</p>
+        <p>Consulta rápida e integrada ao repositório (v4.21)</p>
     </div>
 """, unsafe_allow_html=True)
 
@@ -142,7 +153,7 @@ def higienizar_base(df):
             if "e-mail" in col.lower() and "comercial" in col.lower(): col_alvo = col; break
     
     if col_alvo:
-        df[col_alvo] = df[col_alvo].astype(str)
+        df[col_alVar] = df[col_alvo].astype(str) if 'col_alVar' in locals() else df[col_alvo].astype(str)
         def extrair_primeiro_email(texto):
             if pd.isna(texto) or texto.lower() == 'nan': return ""
             emails = re.findall(r'[\w\.-]+@[\w\.-]+\.\w+', texto)
@@ -377,7 +388,7 @@ with aba_consulta:
                 ).any(axis=1)
                 df_busca = df[mask_busca]
             
-            if len(df_busca>0):
+            if len(df_busca) > 0:
                 st.info(f"Encontrado(s) {len(df_busca)} registro(s) correspondente(s).")
                 for idx, row in df_busca.head(10).iterrows():
                     def achar_valor(palavras_chave):
@@ -422,6 +433,19 @@ with aba_consulta:
         st.error(f"⚠️ O arquivo correspondente (`{caminho_arquivo}`) ainda não foi encontrado na raiz do repositório.")
 
 with aba_radar:
-    # --- RADAR GLOBAL COM ANIMAÇÃO DE VARREDURA ---
-    with st.spinner("📡 Varrendo o espaço aéreo e capturando matérias do Radar Global... Por favor, aguarde."):
-        noticias_locmee.buscar_e_transformar_noticias()
+    # --- RADAR GLOBAL COM ANIMAÇÃO DE VARREDURA VISUAL ---
+    placeholder_radar = st.empty()
+    with placeholder_radar.container():
+        st.markdown("""
+            <div style="text-align: center; padding: 40px;">
+                <div class="radar-icon">📡</div>
+                <h4 style="color: #1e293b; margin-top: 15px;">Varrendo o espaço aéreo e capturando matérias do Radar Global...</h4>
+                <p style="color: #64748b;">Monitorando frequência e fontes do turismo. Por favor, aguarde.</p>
+            </div>
+        """, unsafe_allow_html=True)
+
+    # Executa a busca real das notícias
+    noticias_locmee.buscar_e_transformar_noticias()
+
+    # Limpa a mensagem animada de carregamento quando terminar
+    placeholder_radar.empty()
