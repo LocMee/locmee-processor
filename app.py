@@ -5,7 +5,7 @@ import re
 import requests
 from io import BytesIO
 from datetime import datetime
-import noticias_locmee  # <--- 1. IMPORTANDO O NOVO MÓDULO
+import noticias_locmee  # <--- IMPORTANDO O MÓDULO
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="LocMee Data Processor", layout="wide")
@@ -96,11 +96,11 @@ def password_entered():
 if not check_password():
     st.stop()
 
-# --- CABEÇALHO CUSTOMIZADO v4.22 ---
+# --- CABEÇALHO CUSTOMIZADO v4.23 ---
 st.markdown("""
     <div class="title-box">
         <h3>📊 LocMee Data Processor</h3>
-        <p>Consulta rápida e integrada ao repositório (v4.22)</p>
+        <p>Consulta rápida e integrada ao repositório (v4.23)</p>
     </div>
 """, unsafe_allow_html=True)
 
@@ -403,36 +403,5 @@ with aba_consulta:
         st.error(f"⚠️ O arquivo correspondente (`{caminho_arquivo}`) ainda não foi encontrado na raiz do repositório.")
 
 with aba_radar:
-    st.markdown("### 🌐 Radar Global de Notícias do Turismo")
-    st.markdown("Clique no botão abaixo para iniciar a varredura de matérias em tempo real:")
-    
-    if st.button("🛰️ Iniciar Varredura do Radar", type="primary"):
-        # Bloco com CSS embutido direto no container para garantir a animação do radar
-        placeholder_animacao = st.empty()
-        with placeholder_animacao.container():
-            st.markdown("""
-                <style>
-                @keyframes spin-radar {
-                    0% { transform: rotate(0deg); }
-                    100% { transform: rotate(360deg); }
-                }
-                .radar-giratorio {
-                    display: inline-block;
-                    animation: spin-radar 2s linear infinite;
-                    font-size: 45px;
-                }
-                </style>
-                <div style="text-align: center; padding: 40px; background-color: #f8f9fa; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 20px;">
-                    <div class="radar-giratorio">📡</div>
-                    <h4 style="color: #1e293b; margin-top: 15px;">Varrendo o espaço aéreo e capturando matérias do Radar Global...</h4>
-                    <p style="color: #64748b;">Monitorando frequência e fontes do turismo. Por favor, aguarde alguns instantes.</p>
-                </div>
-            """, unsafe_allow_html=True)
-
-        # Executa a busca real das notícias
+    with st.spinner("🌐 Varrendo e capturando matérias do Radar Global..."):
         noticias_locmee.buscar_e_transformar_noticias()
-
-        # Remove o carregador animado após concluir
-        placeholder_animacao.empty()
-    else:
-        st.info("💡 O radar está em modo de espera. Clique no botão acima para iniciar a varredura das notícias.")
