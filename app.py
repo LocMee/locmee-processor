@@ -129,7 +129,6 @@ def formatar_nome_responsavel(texto):
     palavras_ignorar = {"de", "do", "da", "dos", "das", "e", "e."}
     tokens = texto.split()
     tokens_filtrados = [t for t in tokens if t.lower() not in palavras_ignorar]
-    # Pega até 2 palavras principais e aplica Title Case (Iniciais Maiúsculas)
     nome_fmt = " ".join(tokens_filtrados[:2])
     return nome_fmt.title()
 
@@ -378,7 +377,7 @@ with aba_consulta:
                 ).any(axis=1)
                 df_busca = df[mask_busca]
             
-            if len(df_busca) > 0:
+            if len(df_busca>0):
                 st.info(f"Encontrado(s) {len(df_busca)} registro(s) correspondente(s).")
                 for idx, row in df_busca.head(10).iterrows():
                     def achar_valor(palavras_chave):
@@ -423,5 +422,6 @@ with aba_consulta:
         st.error(f"⚠️ O arquivo correspondente (`{caminho_arquivo}`) ainda não foi encontrado na raiz do repositório.")
 
 with aba_radar:
-    # --- CHAMADA DO MÓDULO DE RADAR GLOBAL ---
-    noticias_locmee.buscar_e_transformar_noticias()
+    # --- RADAR GLOBAL COM ANIMAÇÃO DE VARREDURA ---
+    with st.spinner("📡 Varrendo o espaço aéreo e capturando matérias do Radar Global... Por favor, aguarde."):
+        noticias_locmee.buscar_e_transformar_noticias()
