@@ -61,7 +61,7 @@ st.markdown("""
     .radar-icon {
         display: inline-block;
         animation: spin 2s linear infinite;
-        font-size: 32px;
+        font-size: 40px;
     }
 
     /* 7. Espaçamentos gerais otimizados para toque no celular */
@@ -153,7 +153,7 @@ def higienizar_base(df):
             if "e-mail" in col.lower() and "comercial" in col.lower(): col_alvo = col; break
     
     if col_alvo:
-        df[col_alVar] = df[col_alvo].astype(str) if 'col_alVar' in locals() else df[col_alvo].astype(str)
+        df[col_alvo] = df[col_alvo].astype(str)
         def extrair_primeiro_email(texto):
             if pd.isna(texto) or texto.lower() == 'nan': return ""
             emails = re.findall(r'[\w\.-]+@[\w\.-]+\.\w+', texto)
@@ -433,19 +433,25 @@ with aba_consulta:
         st.error(f"⚠️ O arquivo correspondente (`{caminho_arquivo}`) ainda não foi encontrado na raiz do repositório.")
 
 with aba_radar:
-    # --- RADAR GLOBAL COM ANIMAÇÃO DE VARREDURA VISUAL ---
-    placeholder_radar = st.empty()
-    with placeholder_radar.container():
-        st.markdown("""
-            <div style="text-align: center; padding: 40px;">
-                <div class="radar-icon">📡</div>
-                <h4 style="color: #1e293b; margin-top: 15px;">Varrendo o espaço aéreo e capturando matérias do Radar Global...</h4>
-                <p style="color: #64748b;">Monitorando frequência e fontes do turismo. Por favor, aguarde.</p>
-            </div>
-        """, unsafe_allow_html=True)
+    st.markdown("### 🌐 Radar Global de Notícias do Turismo")
+    st.markdown("Clique no botão abaixo para iniciar a varredura de matérias em tempo real:")
+    
+    # Botão de disparo para ativar o radar visual e iniciar a busca
+    if st.button("🛰️ Iniciar Varredura do Radar", type="primary"):
+        placeholder_animacao = st.empty()
+        with placeholder_animacao.container():
+            st.markdown("""
+                <div style="text-align: center; padding: 40px; background-color: #f8f9fa; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 20px;">
+                    <div class="radar-icon">📡</div>
+                    <h4 style="color: #1e293b; margin-top: 15px;">Varrendo o espaço aéreo e capturando matérias do Radar Global...</h4>
+                    <p style="color: #64748b;">Monitorando frequência e fontes do turismo. Por favor, aguarde alguns instantes.</p>
+                </div>
+            """, unsafe_allow_html=True)
 
-    # Executa a busca real das notícias
-    noticias_locmee.buscar_e_transformar_noticias()
+        # Executa a busca real das notícias
+        noticias_locmee.buscar_e_transformar_noticias()
 
-    # Limpa a mensagem animada de carregamento quando terminar
-    placeholder_radar.empty()
+        # Remove a animação após a conclusão
+        placeholder_animacao.empty()
+    else:
+        st.info("💡 O radar está em modo de espera. Clique no botão acima para iniciar a varredura das notícias.")
